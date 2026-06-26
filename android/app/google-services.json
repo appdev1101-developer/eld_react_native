@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "933708469264",
+    "firebase_url": "https://eld-app-b14d7-default-rtdb.firebaseio.com",
+    "project_id": "eld-app-b14d7",
+    "storage_bucket": "eld-app-b14d7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:933708469264:android:1d4414222f3822e5bd6695",
+        "android_client_info": {
+          "package_name": "com.truxy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBB5BjxcLK0gqgBv9gvSuBnRSmC9iKniiA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

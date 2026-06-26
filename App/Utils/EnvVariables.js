@@ -1,0 +1,9 @@
+import { BASE_URL, WEBSOCKET_URL } from '@env';
+
+const MAIN_BASE_URL = BASE_URL;
+const MESSAGE_WEBSOCKET_URL = WEBSOCKET_URL;
+
+export {
+    MAIN_BASE_URL,
+    MESSAGE_WEBSOCKET_URL
+};
