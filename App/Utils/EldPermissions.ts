@@ -1,4 +1,10 @@
-import { AppState, Linking, PermissionsAndroid, Platform } from 'react-native';
+import {
+    AppState,
+    Linking,
+    Permission,
+    PermissionsAndroid,
+    Platform
+} from 'react-native';
 
 export type EldPermissionStatus = {
     bluetooth: boolean;
@@ -10,7 +16,7 @@ export type EldPermissionStatus = {
 const ANDROID_API_BLUETOOTH_RUNTIME = 31;
 const ANDROID_API_NOTIFICATIONS = 33;
 
-async function checkPermission(permission: string): Promise<boolean> {
+async function checkPermission(permission: Permission): Promise<boolean> {
     if (Platform.OS !== 'android') return true;
     try {
         return await PermissionsAndroid.check(permission);
@@ -19,7 +25,7 @@ async function checkPermission(permission: string): Promise<boolean> {
     }
 }
 
-async function requestPermission(permission: string): Promise<boolean> {
+async function requestPermission(permission: Permission): Promise<boolean> {
     try {
         const result = await PermissionsAndroid.request(permission);
         return result === PermissionsAndroid.RESULTS.GRANTED;

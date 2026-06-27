@@ -1,7 +1,5 @@
 import {
     ActivityIndicator,
-    Dimensions,
-    Image,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -10,7 +8,7 @@ import {
 } from 'react-native';
 import React, { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { Container, Icon } from 'react-native-basic-elements';
+import { Container } from 'react-native-basic-elements';
 import AppStatusBar from '../../Components/AppStatusBar';
 import LinearGradient from 'react-native-linear-gradient';
 import HomeHeader from '../../Components/Headers/HomeHeader';
@@ -23,10 +21,30 @@ import moment from 'moment';
 import HOSChart from '../../Components/Compliance/HOSChart';
 import { HOSChartData } from '../../Model/Dashboard';
 
-const { width } = Dimensions.get('screen');
+type HosLogDayRecord = Record<string, unknown>;
+type HosDaySummary = { total_shift_time?: string };
+
+function getHosDayValues(
+    item: HosLogDayRecord | null | undefined
+): unknown[] {
+    if (!item) {
+        return [];
+    }
+    const values = Object.values(item)[0];
+    return Array.isArray(values) ? values : [];
+}
+
+function getHosDaySummary(dayValues: unknown[]): HosDaySummary | undefined {
+    const summary = dayValues[0];
+    if (summary && typeof summary === 'object') {
+        return summary as HosDaySummary;
+    }
+    return undefined;
+}
+
 const Compliance = () => {
-    const [todayData, setTodaysData] = useState<Record<string, any> | null>(null);
-    const [hosData, setHosData] = useState<Array<any>>([]);
+    const [todayData, setTodaysData] = useState<HosLogDayRecord | null>(null);
+    const [hosData, setHosData] = useState<HosLogDayRecord[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [chartData, setChartData] = useState<HOSChartData>({
@@ -73,14 +91,14 @@ const Compliance = () => {
                 if (result.status === 'success') {
                     const data = result.log_data;
                     setTodaysData(
-                        data.find((item: any) =>
+                        data.find((item: HosLogDayRecord) =>
                             Object.keys(item).includes(moment().format('YYYY-MM-DD'))
                         )
                     );
 
                     setHosData(
                         data.filter(
-                            (item: any) =>
+                            (item: HosLogDayRecord) =>
                                 !Object.keys(item).includes(moment().format('YYYY-MM-DD'))
                         )
                     );
@@ -142,27 +160,31 @@ const Compliance = () => {
                         }
                     >
                         <Text style={styles.headerText}>Last Activity, Today</Text>
-                        {todayData && (
-                            <ActivityCard
-                                date={Object.keys(todayData)[0]}
-                                totalShiftTime={
-                                    Object.values(todayData)?.[0]?.[0]?.total_shift_time
-                                }
-                                onPress={() =>
-                                    NavigationService.navigate('SingleActivity', {
-                                        data: Object.values(todayData)?.[0]?.[0],
-                                        date: Object.keys(todayData)[0],
-                                        logData: Object.values(todayData)?.[0]?.[2],
-                                        fromDetails: Object.values(todayData)?.[0]?.[1],
-                                        odometer: Object.values(todayData)?.[0]?.[8],
-                                        distance: Object.values(todayData)?.[0]?.[7],
-                                        origin: Object.values(todayData)?.[0]?.[9],
-                                        destination: Object.values(todayData)?.[0]?.[10],
-                                        coDriver: Object.values(todayData)?.[0]?.[5]
-                                    })
-                                }
-                            />
-                        )}
+                        {todayData && (() => {
+                            const todayValues = getHosDayValues(todayData);
+                            const todaySummary = getHosDaySummary(todayValues);
+                            return (
+                                <ActivityCard
+                                    date={Object.keys(todayData)[0]}
+                                    totalShiftTime={
+                                        todaySummary?.total_shift_time ?? ''
+                                    }
+                                    onPress={() =>
+                                        NavigationService.navigate('SingleActivity', {
+                                            data: todayValues[0],
+                                            date: Object.keys(todayData)[0],
+                                            logData: todayValues[2],
+                                            fromDetails: todayValues[1],
+                                            odometer: todayValues[8],
+                                            distance: todayValues[7],
+                                            origin: todayValues[9],
+                                            destination: todayValues[10],
+                                            coDriver: todayValues[5],
+                                        })
+                                    }
+                                />
+                            );
+                        })()}
 
                         <HOSChart
                             lineObject={chartData.graph_data.map((item) => {
@@ -206,37 +228,32 @@ const Compliance = () => {
                             </Text>
                         </View>
 
-                        {hosData.map((item: any, index: number) => {
+                        {hosData.map((item, index) => {
+                            const dayValues = getHosDayValues(item);
+                            const daySummary = getHosDaySummary(dayValues);
                             return (
                                 <ActivityCard
                                     key={index}
                                     date={Object.keys(item)[0]}
                                     totalShiftTime={
-                                        Object.values(item)?.[0]?.[0]?.total_shift_time
+                                        daySummary?.total_shift_time ?? ''
                                     }
                                     onPress={() =>
                                         NavigationService.navigate('SingleActivity', {
-                                            data: Object.values(item)?.[0]?.[0],
+                                            data: dayValues[0],
                                             date: Object.keys(item)[0],
-                                            logData: Object.values(item)?.[0]?.[2],
-                                            fromDetails: Object.values(item)?.[0]?.[1],
-                                            odometer: Object.values(item)?.[0]?.[8],
-                                            distance: Object.values(item)?.[0]?.[7],
-                                            origin: Object.values(item)?.[0]?.[9],
-                                            destination: Object.values(item)?.[0]?.[10],
-                                            coDriver: Object.values(item)?.[0]?.[5]
+                                            logData: dayValues[2],
+                                            fromDetails: dayValues[1],
+                                            odometer: dayValues[8],
+                                            distance: dayValues[7],
+                                            origin: dayValues[9],
+                                            destination: dayValues[10],
+                                            coDriver: dayValues[5],
                                         })
                                     }
                                 />
                             );
                         })}
-
-                        {/* <ActivityCard />
-                        <ActivityCard />
-                        <ActivityCard />
-                        <ActivityCard />
-                        <ActivityCard />
-                        <ActivityCard /> */}
                     </ScrollView>
                 </View>
             </LinearGradient>
