@@ -40,7 +40,7 @@ const App = () => {
         ensureEldConnectionBeepListener();
         ckhUser();
 
-        requestEldPermissions();
+        requestEldPermissions().catch(() => {});
 
         const stopWatchingPermissions = watchEldPermissionsOnResume(() => {
             GeoDataBackgroundService.restoreIfNeeded().catch(() => {});

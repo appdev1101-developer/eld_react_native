@@ -11,13 +11,80 @@ export type EldPermissionStatus = {
     location: boolean;
     notifications: boolean;
     allGranted: boolean;
+    deniedPermissions: string[];
+    hasNeverAskAgain: boolean;
 };
 
 const ANDROID_API_BLUETOOTH_RUNTIME = 31;
 const ANDROID_API_NOTIFICATIONS = 33;
 
+function getAndroidApiLevel(): number {
+    return Number(Platform.Version);
+}
+
+const GRANTED = PermissionsAndroid.RESULTS.GRANTED;
+const NEVER_ASK_AGAIN = PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
+
+function buildGrantedStatus(
+    bluetooth: boolean,
+    location: boolean,
+    notifications: boolean,
+    deniedPermissions: string[] = [],
+    hasNeverAskAgain = false
+): EldPermissionStatus {
+    return {
+        bluetooth,
+        location,
+        notifications,
+        allGranted: bluetooth && location && notifications,
+        deniedPermissions,
+        hasNeverAskAgain
+    };
+}
+
+function getRequiredPermissions(): Permission[] {
+    if (Platform.OS !== 'android') {
+        return [];
+    }
+
+    const permissions: Permission[] = [
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION
+    ];
+
+    if (getAndroidApiLevel() >= ANDROID_API_BLUETOOTH_RUNTIME) {
+        permissions.unshift(
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT
+        );
+    }
+
+    if (getAndroidApiLevel() >= ANDROID_API_NOTIFICATIONS) {
+        permissions.push(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+    }
+
+    return permissions;
+}
+
+function permissionLabel(permission: Permission): string {
+    switch (permission) {
+        case PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN:
+        case PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT:
+            return 'Bluetooth';
+        case PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION:
+        case PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION:
+            return 'Location';
+        case PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS:
+            return 'Notifications';
+        default:
+            return 'Required permission';
+    }
+}
+
 async function checkPermission(permission: Permission): Promise<boolean> {
-    if (Platform.OS !== 'android') return true;
+    if (Platform.OS !== 'android') {
+        return true;
+    }
     try {
         return await PermissionsAndroid.check(permission);
     } catch {
@@ -25,95 +92,130 @@ async function checkPermission(permission: Permission): Promise<boolean> {
     }
 }
 
-async function requestPermission(permission: Permission): Promise<boolean> {
-    try {
-        const result = await PermissionsAndroid.request(permission);
-        return result === PermissionsAndroid.RESULTS.GRANTED;
-    } catch {
-        return false;
-    }
-}
-
-/** Read current Bluetooth, location, and notification permission state (Android only). */
-export async function getEldPermissionStatus(): Promise<EldPermissionStatus> {
-    if (Platform.OS !== 'android') {
-        return {
-            bluetooth: true,
-            location: true,
-            notifications: true,
-            allGranted: true
-        };
-    }
-
+async function readPermissionFlags(): Promise<{
+    bluetooth: boolean;
+    location: boolean;
+    notifications: boolean;
+}> {
     let bluetooth = true;
-    if (Platform.Version >= ANDROID_API_BLUETOOTH_RUNTIME) {
-        const scan = await checkPermission(PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN);
+    if (getAndroidApiLevel() >= ANDROID_API_BLUETOOTH_RUNTIME) {
+        const scan = await checkPermission(
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN
+        );
         const connect = await checkPermission(
             PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT
         );
         bluetooth = scan && connect;
     }
 
-    const location = await checkPermission(
+    const fineLocation = await checkPermission(
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
     );
+    const coarseLocation = await checkPermission(
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION
+    );
+    const location = fineLocation || coarseLocation;
 
     let notifications = true;
-    if (Platform.Version >= ANDROID_API_NOTIFICATIONS) {
+    if (getAndroidApiLevel() >= ANDROID_API_NOTIFICATIONS) {
         notifications = await checkPermission(
             PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
         );
     }
 
-    return {
-        bluetooth,
-        location,
-        notifications,
-        allGranted: bluetooth && location && notifications
-    };
+    return { bluetooth, location, notifications };
+}
+
+function collectDeniedLabels(
+    flags: { bluetooth: boolean; location: boolean; notifications: boolean }
+): string[] {
+    const denied: string[] = [];
+    if (!flags.bluetooth) {
+        denied.push('Bluetooth');
+    }
+    if (!flags.location) {
+        denied.push('Location');
+    }
+    if (!flags.notifications) {
+        denied.push('Notifications');
+    }
+    return denied;
+}
+
+/** Read current Bluetooth, location, and notification permission state (Android only). */
+export async function getEldPermissionStatus(): Promise<EldPermissionStatus> {
+    if (Platform.OS !== 'android') {
+        return buildGrantedStatus(true, true, true);
+    }
+
+    const flags = await readPermissionFlags();
+    return buildGrantedStatus(
+        flags.bluetooth,
+        flags.location,
+        flags.notifications,
+        collectDeniedLabels(flags)
+    );
 }
 
 /**
  * Prompt for Bluetooth, location, and notification permissions.
- * Called once from App.js on startup (and again when the app returns active
- * if the user may have changed grants in Settings).
+ * Re-checks with PermissionsAndroid.check after the system dialog closes.
  */
 export async function requestEldPermissions(): Promise<EldPermissionStatus> {
     if (Platform.OS !== 'android') {
-        return {
-            bluetooth: true,
-            location: true,
-            notifications: true,
-            allGranted: true
-        };
+        return buildGrantedStatus(true, true, true);
     }
 
-    let bluetooth = true;
-    if (Platform.Version >= ANDROID_API_BLUETOOTH_RUNTIME) {
-        const scan = await requestPermission(PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN);
-        const connect = await requestPermission(
-            PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT
-        );
-        bluetooth = scan && connect;
+    const permissions = getRequiredPermissions();
+    const deniedPermissions: string[] = [];
+    let hasNeverAskAgain = false;
+
+    if (permissions.length > 0) {
+        const results = await PermissionsAndroid.requestMultiple(permissions);
+
+        Object.entries(results).forEach(([permission, result]) => {
+            if (result !== GRANTED) {
+                deniedPermissions.push(permissionLabel(permission as Permission));
+            }
+            if (result === NEVER_ASK_AGAIN) {
+                hasNeverAskAgain = true;
+            }
+        });
     }
 
-    const location = await requestPermission(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+    const flags = await readPermissionFlags();
+    const uniqueDenied = [
+        ...new Set([...collectDeniedLabels(flags), ...deniedPermissions])
+    ];
+
+    return buildGrantedStatus(
+        flags.bluetooth,
+        flags.location,
+        flags.notifications,
+        uniqueDenied,
+        hasNeverAskAgain
     );
+}
 
-    let notifications = true;
-    if (Platform.Version >= ANDROID_API_NOTIFICATIONS) {
-        notifications = await requestPermission(
-            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
-        );
+/**
+ * Check permissions, request any that are missing, then re-check.
+ * Use this before ELD scan/connect flows.
+ */
+export async function ensureEldPermissions(): Promise<EldPermissionStatus> {
+    const current = await getEldPermissionStatus();
+    if (current.allGranted) {
+        return current;
     }
+    return requestEldPermissions();
+}
 
-    return {
-        bluetooth,
-        location,
-        notifications,
-        allGranted: bluetooth && location && notifications
-    };
+export function formatDeniedPermissionsMessage(
+    status: EldPermissionStatus
+): string {
+    if (status.deniedPermissions.length === 0) {
+        return 'Enable location, nearby devices, and notifications in Settings.';
+    }
+    return `Still missing: ${status.deniedPermissions.join(', ')}. Enable them in Settings.`;
 }
 
 export function openAppSettings(): void {
@@ -130,12 +232,11 @@ export function watchEldPermissionsOnResume(onGranted: () => void): () => void {
     }
 
     const subscription = AppState.addEventListener('change', async (state) => {
-        if (state !== 'active') return;
-
-        let status = await getEldPermissionStatus();
-        if (!status.allGranted) {
-            status = await requestEldPermissions();
+        if (state !== 'active') {
+            return;
         }
+
+        const status = await ensureEldPermissions();
         if (status.allGranted) {
             onGranted();
         }

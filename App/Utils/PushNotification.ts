@@ -6,12 +6,12 @@ import notifee, {
 import messaging, {
     FirebaseMessagingTypes
 } from '@react-native-firebase/messaging';
-import { PermissionsAndroid, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import HttpClient from './HttpClient';
+import { getEldPermissionStatus, requestEldPermissions } from './EldPermissions';
 
 const DEFAULT_CHANNEL_ID = 'truxy_default';
-const ANDROID_API_NOTIFICATIONS = 33;
 
 export type PushNotificationHandlers = {
     onForegroundMessage?: (message: FirebaseMessagingTypes.RemoteMessage) => void;
@@ -47,14 +47,13 @@ async function requestPermission(): Promise<boolean> {
         return notifeeGranted && fcmGranted;
     }
 
-    if (Number(Platform.Version) >= ANDROID_API_NOTIFICATIONS) {
-        const result = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
-        );
-        return result === PermissionsAndroid.RESULTS.GRANTED;
+    const status = await getEldPermissionStatus();
+    if (status.notifications) {
+        return true;
     }
 
-    return true;
+    const updated = await requestEldPermissions();
+    return updated.notifications;
 }
 
 async function getFcmToken(): Promise<string | null> {

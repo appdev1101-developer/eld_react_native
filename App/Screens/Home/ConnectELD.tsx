@@ -23,7 +23,11 @@ import { FONTS } from '../../Constants/Fonts';
 import NavigationService from '../../Services/Navigation';
 import Geometris, { BluetoothDevice } from '../../Utils/Geometris';
 import GeoDataBackgroundService from '../../Utils/GeoDataService';
-import { getEldPermissionStatus, openAppSettings } from '../../Utils/EldPermissions';
+import {
+    ensureEldPermissions,
+    formatDeniedPermissionsMessage,
+    openAppSettings
+} from '../../Utils/EldPermissions';
 import AppStatusBar from '../../Components/AppStatusBar';
 
 const ITEMS: Array<string> = [
@@ -42,12 +46,14 @@ const ConnectELD = () => {
     const [connecting, setConnecting] = useState(false);
     const [connectionError, setConnectionError] = useState('');
     const requirePermissions = async (): Promise<boolean> => {
-        const { allGranted } = await getEldPermissionStatus();
-        if (allGranted) return true;
+        const status = await ensureEldPermissions();
+        if (status.allGranted) {
+            return true;
+        }
 
         Alert.alert(
             'Permissions required',
-            'Enable location, nearby devices, and notifications in Settings. Truxy requests these when the app starts.',
+            formatDeniedPermissionsMessage(status),
             [
                 { text: 'Not now', style: 'cancel' },
                 { text: 'Open Settings', onPress: openAppSettings }
