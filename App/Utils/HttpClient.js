@@ -30,7 +30,7 @@ async function request(endpoint, params = null, method = 'GET') {
 
     var xmlRequest = new XMLHttpRequest();
     let url = BASE_URL + endpoint;
-    console.log('url', url);
+    console.log('<<<<<<<<<< Request Url >>>>>>>>>> ', url);
     return new Promise((resolve, reject) => {
         xmlRequest.open(method, url, true);
 
@@ -38,19 +38,21 @@ async function request(endpoint, params = null, method = 'GET') {
         xmlRequest.setRequestHeader('Content-Type', 'application/json');
         xmlRequest.setRequestHeader('Authorization', `Bearer ${token}`);
 
-        // console.log("token", token)
+        console.log("<<<<<<<< Auth Token >>>>>>>>>> ", token);
 
         if (method == 'GET') {
             xmlRequest.send();
         } else {
+            console.log("<<<<<<<< Params >>>>>>> ", JSON.stringify(params));
             xmlRequest.send(JSON.stringify(params));
         }
 
         xmlRequest.onreadystatechange = function () {
             // Call a function when the state changes.
-            // console.log('xmlRequest.response', xmlRequest.response);
+            console.log('<<<<<<< xmlRequest.response >>>> ', xmlRequest.response);
             if (xmlRequest.readyState === XMLHttpRequest.DONE) {
                 if (xmlRequest.status === 200) {
+                    console.log("<<<<<<<< Response >>>>>>> "+JSON.parse(xmlRequest.response));
                     resolve(JSON.parse(xmlRequest.response));
                 } else if (xmlRequest.status === 409) {
                     // Handle 409 (Conflict - already logged in) as a special case

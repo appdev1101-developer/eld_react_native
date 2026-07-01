@@ -26,7 +26,8 @@ import GeoDataBackgroundService from '../../Utils/GeoDataService';
 import {
     ensureEldPermissions,
     formatDeniedPermissionsMessage,
-    openAppSettings
+    openAppSettings,
+    openDeviceLocationSettings
 } from '../../Utils/EldPermissions';
 import AppStatusBar from '../../Components/AppStatusBar';
 
@@ -51,12 +52,27 @@ const ConnectELD = () => {
             return true;
         }
 
+        if (!status.deviceLocationEnabled) {
+            Alert.alert(
+                'Turn on Location (GPS)',
+                'Truxy needs your phone Location/GPS enabled. The grey location icon in your status bar means device GPS is off.',
+                [
+                    { text: 'Not now', style: 'cancel' },
+                    {
+                        text: 'Open Location Settings',
+                        onPress: openDeviceLocationSettings
+                    }
+                ]
+            );
+            return false;
+        }
+
         Alert.alert(
             'Permissions required',
-            formatDeniedPermissionsMessage(status),
+            `${formatDeniedPermissionsMessage(status)} Enable them in app Settings.`,
             [
                 { text: 'Not now', style: 'cancel' },
-                { text: 'Open Settings', onPress: openAppSettings }
+                { text: 'Open App Settings', onPress: openAppSettings }
             ]
         );
         return false;
@@ -402,7 +418,7 @@ const ConnectELD = () => {
                         {!scanning && devices.length === 0 && (
                             <View style={styles.emptyContainer}>
                                 <Icon
-                                    name="bluetooth-off"
+                                    name="bluetooth-disabled"
                                     type="MaterialIcon"
                                     size={moderateScale(40)}
                                     color="#7051CF"

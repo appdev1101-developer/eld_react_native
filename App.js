@@ -1,7 +1,7 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Alert } from 'react-native';
+import { View, ActivityIndicator, Alert, InteractionManager } from 'react-native';
 import { Theme, useTheme } from 'react-native-basic-elements';
 import AppStatusBar from './App/Components/AppStatusBar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -40,14 +40,34 @@ const App = () => {
         ensureEldConnectionBeepListener();
         ckhUser();
 
-        requestEldPermissions().catch(() => {});
-
         const stopWatchingPermissions = watchEldPermissionsOnResume(() => {
             GeoDataBackgroundService.restoreIfNeeded().catch(() => {});
         });
 
         return stopWatchingPermissions;
     }, []);
+
+    useEffect(() => {
+        if (isLoading) {
+            return;
+        }
+
+        const interaction = InteractionManager.runAfterInteractions(() => {
+            requestEldPermissions()
+                .then((status) => {
+                    if (__DEV__) {
+                        console.log('ELD permission status:', status);
+                    }
+                })
+                .catch((error) => {
+                    if (__DEV__) {
+                        console.warn('ELD permission request failed:', error);
+                    }
+                });
+        });
+
+        return () => interaction.cancel();
+    }, [isLoading]);
 
     useEffect(() => {
         if (!loginStatus) return;
@@ -338,6 +358,7 @@ const App = () => {
             })
             .catch((err) => {
                 console.log('err>>>', err);
+                setIsLoading(false);
             });
     };
 
