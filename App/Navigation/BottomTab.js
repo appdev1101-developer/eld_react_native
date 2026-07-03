@@ -10,6 +10,7 @@ import AccountSetting from '../Screens/Settings/AccountSetting';
 import ActivityLog from '../Screens/Activity/ActivityLog';
 import HomeStack from './HomeStack';
 import Notification from '../Screens/Notification';
+import NotificationTabIcon from '../Components/NotificationTabIcon';
 import Compliance from '../Screens/Compliance';
 import MessageStack from './MessageStack';
 
@@ -113,21 +114,12 @@ const BottomTab = () => {
             />
 
             <Tab.Screen
-                name="Nitification"
+                name="Notification"
                 children={() => <ScreenWrapper><Notification /></ScreenWrapper>}
                 options={{
-                    tabBarIcon: ({ focused, color }) => {
-                        return (
-                            <View style={styles.tabIconContainer}>
-                                <Image
-                                    source={require('../Assets/TabIcon/Notification.png')}
-                                    style={styles.icon}
-                                    tintColor={color}
-                                />
-                                {focused && <View style={[styles.focusIndicator, { backgroundColor: color }]} />}
-                            </View>
-                        )
-                    }
+                    tabBarIcon: ({ focused, color }) => (
+                        <NotificationTabIcon focused={focused} color={color} />
+                    )
                 }}
             />
 

@@ -1,6 +1,6 @@
 import { NativeModules, Platform } from 'react-native';
 import Storage from './Storage';
-import AuthService from '../Services/Auth';
+import { getToken } from '../core/session/sessionStorage';
 import { getEldPermissionStatus } from './EldPermissions';
 import { MAIN_BASE_URL } from './EnvVariables';
 
@@ -36,7 +36,7 @@ const GeoDataBackgroundService = {
         const { allGranted } = await getEldPermissionStatus();
         if (!allGranted) return false;
 
-        const token: string = (await AuthService.getToken()) ?? '';
+        const token: string = (await getToken()) ?? '';
 
         await Storage.set(STORAGE_KEY_DEVICE, deviceAddress);
         return NativeGeoDataService.startService(getEldApiUrl(), token, deviceAddress);

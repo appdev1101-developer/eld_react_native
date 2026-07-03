@@ -1,11 +1,9 @@
-import { StyleSheet, ToastAndroid, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import React, { useState } from 'react';
 import {
     AppButton,
-    AppTextInput,
     Container,
-    Text,
-    useTheme
+    Text
 } from 'react-native-basic-elements';
 import AuthHeader from '../../Components/Headers/AuthHeader';
 import { FONTS } from '../../Constants/Fonts';
@@ -13,6 +11,8 @@ import { moderateScale } from '../../Constants/PixelRatio';
 import NavigationService from '../../Services/Navigation';
 import OTPInput from '../../Components/UI/OTPInput';
 import { RouteProp } from '@react-navigation/native';
+import { showError } from '../../Utils/toast';
+import { otp } from '../../Utils/validators';
 
 type OtpVerificationRouteProp = RouteProp<
     { params: { otp: string; email: string } },
@@ -20,17 +20,23 @@ type OtpVerificationRouteProp = RouteProp<
 >;
 
 const OtpVerification = ({ route }: { route: OtpVerificationRouteProp }) => {
-    const { otp, email } = route.params;
+    const { otp: expectedOtp, email } = route.params;
 
     const [enteredOtp, setEnteredOtp] = useState<string>('');
 
     const handleVerifyOtp = () => {
-        console.log('enteredOtp === otp', enteredOtp, otp);
-        if (enteredOtp == otp) {
-            NavigationService.navigate('CreateNewPassword', { email });
-        } else {
-            ToastAndroid.show('Invalid OTP', ToastAndroid.SHORT);
+        const otpValidation = otp(enteredOtp, expectedOtp?.length ?? 4);
+        if (!otpValidation.valid) {
+            showError(otpValidation.message);
+            return;
         }
+
+        if (enteredOtp !== expectedOtp) {
+            showError('Invalid OTP');
+            return;
+        }
+
+        NavigationService.navigate('CreateNewPassword', { email });
     };
 
     return (

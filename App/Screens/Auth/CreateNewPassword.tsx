@@ -1,4 +1,4 @@
-import { StyleSheet, ToastAndroid, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import React, { useState } from 'react';
 import {
     AppButton,
@@ -12,7 +12,12 @@ import { FONTS } from '../../Constants/Fonts';
 import { moderateScale } from '../../Constants/PixelRatio';
 import NavigationService from '../../Services/Navigation';
 import { RouteProp } from '@react-navigation/native';
-import AuthService from '../../Services/Auth';
+import { authApi } from '../../core/api/services/authApi';
+import { isLegacySuccess } from '../../core/api/types/common';
+import { requireOnline } from '../../core/network/requireOnline';
+import { showError, showToast } from '../../Utils/toast';
+import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
+import { firstInvalid, minLength, passwordsMatch, required } from '../../Utils/validators';
 
 type CreatePasswordRouteProp = RouteProp<{ params: { email: string } }, 'params'>;
 
@@ -23,17 +28,34 @@ const CreateNewPassword = ({ route }: { route: CreatePasswordRouteProp }) => {
     const [confirmPassword, setConfirmPassword] = useState<string>('');
 
     const handleChangePassword = () => {
-        AuthService.changePassword(email, password, confirmPassword)
+        const validation = firstInvalid(
+            required(password, 'Password'),
+            minLength(password, 6, 'Password'),
+            required(confirmPassword, 'Confirm password'),
+            passwordsMatch(password, confirmPassword)
+        );
+
+        if (!validation.valid) {
+            showError(validation.message);
+            return;
+        }
+
+        if (!requireOnline()) {
+            return;
+        }
+
+        authApi
+            .resetPasswordLegacy(email, password, confirmPassword)
             .then((result) => {
-                if (result.status === 'success') {
-                    ToastAndroid.show(result.message, ToastAndroid.SHORT);
+                if (isLegacySuccess(result)) {
+                    showToast(result.message ?? 'Password updated successfully');
                     NavigationService.navigate('PasswordChanged');
                 } else {
-                    ToastAndroid.show(result.message, ToastAndroid.SHORT);
+                    showError(result.message ?? 'Failed to reset password');
                 }
             })
             .catch((error) => {
-                ToastAndroid.show(error.error, ToastAndroid.SHORT);
+                showError(getApiErrorMessage(error, 'Failed to reset password'));
             });
     };
 
@@ -58,6 +80,7 @@ const CreateNewPassword = ({ route }: { route: CreatePasswordRouteProp }) => {
                 placeholderTextColor="#8391A1"
                 value={password}
                 onChangeText={(val) => setPassword(val)}
+                secureTextEntry
             />
 
             <AppTextInput
@@ -71,6 +94,7 @@ const CreateNewPassword = ({ route }: { route: CreatePasswordRouteProp }) => {
                 placeholderTextColor="#8391A1"
                 value={confirmPassword}
                 onChangeText={(val) => setConfirmPassword(val)}
+                secureTextEntry
             />
 
             <AppButton

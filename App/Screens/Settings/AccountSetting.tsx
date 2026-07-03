@@ -5,7 +5,6 @@ import {
     RefreshControl,
     ScrollView,
     StyleSheet,
-    ToastAndroid,
     View
 } from 'react-native';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -24,11 +23,16 @@ import { FONTS } from '../../Constants/Fonts';
 import { getUserAvatarSource } from '../../Constants/ProfileImage';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../Redux/store';
-import { setConfigData, setUser, setUserInfo } from '../../Redux/reducer/User';
-import SettingsService from '../../Services/Settings';
-import AuthService from '../../Services/Auth';
-import DashboardService from '../../Services/Dashboard';
+import { setUser, setUserInfo } from '../../Redux/reducer/User';
+import { useSession } from '../../core/hooks/useSession';
+import { settingsApi } from '../../core/api/services/settingsApi';
+import { isLegacySuccess } from '../../core/api/types/common';
+import { useDashboard } from '../../core/hooks/useDashboard';
 import { UserDataType } from '../../Model/User';
+import { requireOnline } from '../../core/network/requireOnline';
+import { showError, showToast } from '../../Utils/toast';
+import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
+import { email as validateEmail, firstInvalid, required } from '../../Utils/validators';
 
 const SETTING_ITEMS: Array<{
     title: string;
@@ -40,7 +44,7 @@ const SETTING_ITEMS: Array<{
         image: require('../../Assets/Icons/Union.png')
     },
     {
-        title: 'Privaty and Security',
+        title: 'Privacy and Security',
         image: require('../../Assets/Icons/privacy.png')
     },
     {
@@ -64,6 +68,7 @@ const AccountSetting = ({
 }: AccountSettingProps = {}) => {
     const route = useRoute<any>();
     const dispatch = useDispatch();
+    const { updateAccount: persistAccount } = useSession();
     const { userData, userInfo, configData } = useSelector(
         (state: RootState) => state.User
     );
@@ -83,27 +88,13 @@ const AccountSetting = ({
     const [timezone, setTimezone] = useState('');
     const [languageId, setLanguageId] = useState('1');
     const [saving, setSaving] = useState(false);
-    const [refreshing, setRefreshing] = useState(false);
+    const { refresh, refreshing } = useDashboard();
 
     const onRefresh = useCallback(() => {
-        setRefreshing(true);
-        Promise.all([
-            DashboardService.getDashboard(),
-            DashboardService.getConfigData()
-        ])
-            .then(([dashboardData, configData]) => {
-                if (dashboardData.status === 'success') {
-                    dispatch(setUserInfo(dashboardData.userInfo));
-                }
-                if (configData.status === 'success') {
-                    dispatch(setConfigData(configData));
-                }
-            })
-            .catch((error) => {
-                console.log('profile refresh error', error);
-            })
-            .finally(() => setRefreshing(false));
-    }, [dispatch]);
+        refresh().catch((error) => {
+            console.log('profile refresh error', error);
+        });
+    }, [refresh]);
 
     useEffect(() => {
         if (!userData) {
@@ -135,26 +126,31 @@ const AccountSetting = ({
         )?.language_name ?? 'English';
 
     const handleUpdateProfile = () => {
-        if (!firstName.trim() || !lastName.trim()) {
-            ToastAndroid.show('First and last name are required', ToastAndroid.SHORT);
-            return;
-        }
+        const validation = firstInvalid(
+            required(firstName, 'First name'),
+            required(lastName, 'Last name'),
+            validateEmail(email)
+        );
 
-        if (!email.trim()) {
-            ToastAndroid.show('Email is required', ToastAndroid.SHORT);
+        if (!validation.valid) {
+            showError(validation.message);
             return;
         }
 
         const driverId = String(userInfo?.driver_id ?? userData?.driver_id ?? '');
 
         if (!driverId) {
-            ToastAndroid.show('Driver ID is missing', ToastAndroid.SHORT);
+            showError('Driver ID is missing');
+            return;
+        }
+
+        if (!requireOnline()) {
             return;
         }
 
         setSaving(true);
 
-        SettingsService.updateAccount({
+        settingsApi.updateAccountLegacy({
             first_name: firstName.trim(),
             last_name: lastName.trim(),
             driver_id: driverId,
@@ -168,7 +164,7 @@ const AccountSetting = ({
             licenseNumber: licenseNumber.trim()
         })
             .then(async (result) => {
-                if (result?.status === 'success') {
+                if (isLegacySuccess(result)) {
                     const updatedUser: UserDataType = {
                         ...(userData as UserDataType),
                         first_name: firstName.trim(),
@@ -194,24 +190,15 @@ const AccountSetting = ({
                             })
                         );
                     }
-                    await AuthService.setAccount(updatedUser);
+                    await persistAccount(updatedUser);
 
-                    ToastAndroid.show(
-                        result.message || 'Profile updated successfully',
-                        ToastAndroid.SHORT
-                    );
+                    showToast(result.message || 'Profile updated successfully');
                 } else {
-                    ToastAndroid.show(
-                        result?.message || 'Failed to update profile',
-                        ToastAndroid.SHORT
-                    );
+                    showError(result?.message || 'Failed to update profile');
                 }
             })
             .catch((error) => {
-                ToastAndroid.show(
-                    error?.message || 'Failed to update profile',
-                    ToastAndroid.SHORT
-                );
+                showError(getApiErrorMessage(error, 'Failed to update profile'));
             })
             .finally(() => {
                 setSaving(false);
@@ -227,7 +214,7 @@ const AccountSetting = ({
                 keyboardShouldPersistTaps="handled"
                 refreshControl={
                     <RefreshControl
-                        refreshing={refreshing}
+                            refreshing={refreshing}
                         onRefresh={onRefresh}
                         colors={['#392969']}
                         tintColor="#392969"

@@ -13,7 +13,8 @@ import HomeHeader from '../../Components/Headers/HomeHeader';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import moment from 'moment';
-import DashboardService from '../../Services/Dashboard';
+import { inspectionApi } from '../../core/api/services/inspectionApi';
+import { isLegacySuccess } from '../../core/api/types/common';
 import NavigationService from '../../Services/Navigation';
 
 const InspectionHistory = () => {
@@ -25,10 +26,11 @@ const InspectionHistory = () => {
     }, []);
 
     const getInspectionHistory = () => {
-        DashboardService.getInspectionHistory()
+        inspectionApi
+            .getHistoryLegacy()
             .then((res) => {
-                if (res.status.toLowerCase() === 'success') {
-                    const sorted = [...(res.data ?? [])].sort(
+                if (isLegacySuccess(res)) {
+                    const sorted = [...((res.data as Array<any>) ?? [])].sort(
                         (a, b) =>
                             moment(b.inspection_date_time).valueOf() -
                             moment(a.inspection_date_time).valueOf()

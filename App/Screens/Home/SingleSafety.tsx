@@ -7,7 +7,8 @@ import HomeHeader from '../../Components/Headers/HomeHeader';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import DashboardService from '../../Services/Dashboard';
+import { safetyApi } from '../../core/api/services/safetyApi';
+import { isLegacySuccess } from '../../core/api/types/common';
 import { useRoute } from '@react-navigation/native';
 import moment from 'moment';
 
@@ -21,10 +22,11 @@ const SingleSafety: React.FC = () => {
     }, []);
 
     const getSafetyData = () => {
-        DashboardService.getSafetyData(route.params.shortName)
+        safetyApi
+            .getSafetyDataLegacy(route.params.shortName)
             .then((result) => {
-                if (result.status === 'success') {
-                    setSafetyData(result.data);
+                if (isLegacySuccess(result)) {
+                    setSafetyData((result.data as Array<any>) ?? []);
                 }
             })
             .catch((error) => console.log('error', error))

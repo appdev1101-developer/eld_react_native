@@ -1,4 +1,4 @@
-import { FlatList, Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import React from 'react';
 import { Container, Icon, Text } from 'react-native-basic-elements';
 import AppStatusBar from '../../Components/AppStatusBar';
@@ -71,17 +71,15 @@ const InspectionHistoryDetail = () => {
                             </Text>
                         </View>
 
-                        <FlatList
-                            data={inspectionLog}
-                            scrollEnabled={false}
-                            keyExtractor={(item, index) =>
-                                `${item.inspection_id}-${item.parts_id}-${index}`
-                            }
-                            renderItem={({ item }) => {
-                                const isOk = item.is_ok === 1;
-                                const imageUri = getInspectionImageUrl(item.image_url);
+                        {inspectionLog.map((item: any, index: number) => {
+                            const isOk = item.is_ok === 1;
+                            const imageUri = getInspectionImageUrl(item.image_url);
 
-                                return (
+                            return (
+                                <React.Fragment
+                                    key={`${item.inspection_id}-${item.parts_id}-${index}`}
+                                >
+                                    {index > 0 ? <View style={styles.separator} /> : null}
                                     <View style={styles.partCard}>
                                         <View style={styles.partHeader}>
                                             <Text style={styles.partTitle}>
@@ -136,12 +134,9 @@ const InspectionHistoryDetail = () => {
                                             </View>
                                         ) : null}
                                     </View>
-                                );
-                            }}
-                            ItemSeparatorComponent={() => (
-                                <View style={styles.separator} />
-                            )}
-                        />
+                                </React.Fragment>
+                            );
+                        })}
                     </ScrollView>
                 </View>
             </LinearGradient>

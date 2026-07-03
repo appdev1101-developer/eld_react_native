@@ -1,4 +1,4 @@
-import { Image, StyleSheet, ToastAndroid, View, Modal, Alert } from 'react-native';
+import { Image, StyleSheet, View, Modal } from 'react-native';
 import React, { useState } from 'react';
 import {
     AppButton,
@@ -11,127 +11,87 @@ import AuthHeader from '../../Components/Headers/AuthHeader';
 import { FONTS } from '../../Constants/Fonts';
 import { moderateScale } from '../../Constants/PixelRatio';
 import NavigationService from '../../Services/Navigation';
-import { useDispatch } from 'react-redux';
-import { setUser } from '../../Redux/reducer/User';
-import AuthService from '../../Services/Auth';
-import { UserDataType } from '../../Model/User';
+import { useSession } from '../../core/hooks/useSession';
+import { requireOnline } from '../../core/network/requireOnline';
+import { showError, showToast } from '../../Utils/toast';
+import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
+import { email, firstInvalid, minLength, required } from '../../Utils/validators';
 
 const SignIn = () => {
-    const dispatch = useDispatch();
+    const { login } = useSession();
     const colors = useTheme();
 
-    const [email, setEmail] = useState<string>('');
+    const [emailValue, setEmailValue] = useState<string>('');
     const [password, setPassword] = useState<string>('');
     const [showPassword, setShowPassword] = useState<boolean>(false);
     const [showConflictModal, setShowConflictModal] = useState<boolean>(false);
-    const [conflictData, setConflictData] = useState<any>(null);
+
     const [loginLoading, setLoginLoading] = useState<boolean>(false);
     const [forceLoginLoading, setForceLoginLoading] = useState<boolean>(false);
 
+    const validateCredentials = (): boolean => {
+        const result = firstInvalid(
+            required(emailValue, 'Email'),
+            email(emailValue),
+            required(password, 'Password'),
+            minLength(password, 4, 'Password')
+        );
+
+        if (!result.valid) {
+            showError(result.message);
+            return false;
+        }
+
+        return true;
+    };
+
     const handleLogin = () => {
+        if (!requireOnline() || !validateCredentials()) {
+            return;
+        }
+
         setLoginLoading(true);
-        AuthService.login({ email, password })
-            .then(async (result) => {
-                // Check if this is a 409 conflict (already logged in)
-                if (result && result.multiauth === true) {
-                    setConflictData(result);
+        login({ email: emailValue.trim(), password })
+            .then((result) => {
+                if ('conflict' in result) {
                     setShowConflictModal(true);
                     return;
                 }
 
-                if (result && result.status === 'success') {
-                    await AuthService.setToken(result.token);
-                    await AuthService.setAccount(result.user_info);
-                    dispatch(setUser(result.user_info));
-                    ToastAndroid.show(result.message, ToastAndroid.SHORT);
-                } else {
-                    ToastAndroid.show(result.message, ToastAndroid.SHORT);
-                }
+                showToast(result.message);
             })
-            .catch(async (error) => {
-                console.log('error', error);
-
-                // Initialize force logout service in case of login error
-                // try {
-                //     const forceLogoutService = ForceLogoutService.getInstance();
-
-                //     // Check if we have user data from a previous session
-                //     const storedUserData = await AuthService.getAccount();
-                //     const storedToken = await AuthService.getToken();
-
-                //     console.log("fuck", storedUserData, storedUserData.id, storedToken)
-
-                //     if (storedUserData && storedUserData.id && storedToken) {
-                //         await forceLogoutService.initialize({
-                //             userId: storedUserData.id.toString(),
-                //             accessToken: storedToken,
-                //             onForceLogout: () => {
-                //                 // Handle force logout
-                //                 console.log('Force logout triggered from login error');
-                //                 AuthService.logout();
-                //                 NavigationService.navigate('SignIn');
-                //                 ToastAndroid.show('You have been logged out from another device', ToastAndroid.LONG);
-                //             }
-                //         });
-                //     }
-                // } catch (forceLogoutError) {
-                //     console.log('Error initializing force logout service:', forceLogoutError);
-                // }
-
-                ToastAndroid.show(
-                    typeof error.message === 'object'
-                        ? 'Invalid Login'
-                        : error.message || 'Login failed',
-                    ToastAndroid.SHORT
-                );
+            .catch((error: unknown) => {
+                showError(getApiErrorMessage(error, 'Login failed'));
             })
             .finally(() => setLoginLoading(false));
     };
 
     const handleForceLogin = async () => {
+        if (!requireOnline() || !validateCredentials()) {
+            return;
+        }
+
         setForceLoginLoading(true);
 
         try {
-            // Call login API with force flag
-            const result = await AuthService.login({
-                email,
+            const result = await login({
+                email: emailValue.trim(),
                 password,
                 force: 1
             });
 
-            // Check if this is still a conflict even with force flag
-            if (result && result.multiauth === true) {
-                ToastAndroid.show(
-                    'Unable to force login. Please try again.',
-                    ToastAndroid.SHORT
-                );
+            if ('conflict' in result) {
+                showError('Unable to force login. Please try again.');
                 setShowConflictModal(true);
                 return;
             }
 
-            if (result && result.success === true) {
-                console.log('result', result);
+            if (result.success) {
                 setShowConflictModal(false);
-                const userData = {
-                    id: result.user_id,
-                    master_id: result.master_id,
-                    ...result.user_info
-                };
-                await AuthService.setToken(result.token);
-                await AuthService.setAccount(userData);
-                dispatch(setUser(userData as UserDataType));
-                ToastAndroid.show('Successfully logged in', ToastAndroid.SHORT);
-            } else {
-                ToastAndroid.show(result.message || 'Login failed', ToastAndroid.SHORT);
             }
-        } catch (error: any) {
-            console.log('Force login error', error);
-            ToastAndroid.show(
-                typeof error.message === 'object'
-                    ? 'Force login failed'
-                    : error.message || 'Failed to force login',
-                ToastAndroid.SHORT
-            );
+            showToast(result.message || 'Login failed');
+        } catch (error: unknown) {
+            showError(getApiErrorMessage(error, 'Failed to force login'));
         } finally {
             setForceLoginLoading(false);
         }
@@ -158,8 +118,8 @@ const SignIn = () => {
                 placeholder="Enter your email"
                 placeholderTextColor="#8391A1"
                 keyboardType="email-address"
-                value={email}
-                onChangeText={(text) => setEmail(text)}
+                value={emailValue}
+                onChangeText={(text) => setEmailValue(text)}
             />
 
             <AppTextInput
@@ -221,9 +181,6 @@ const SignIn = () => {
                 }
             />
 
-            {/* </View>
-
-            {/* Conflict Modal */}
             <Modal
                 animationType="fade"
                 transparent={true}
@@ -231,68 +188,33 @@ const SignIn = () => {
                 onRequestClose={() => setShowConflictModal(false)}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Already Logged In</Text>
                         <Text style={styles.modalMessage}>
-                            You are already logged in on another device. Do you want to
-                            login here?
+                            Your account is already active on another device. Do you want
+                            to force login and logout the other session?
                         </Text>
 
                         <View style={styles.modalButtonContainer}>
                             <AppButton
-                                title="No"
-                                style={{
-                                    ...styles.modalButton,
-                                    ...styles.cancelButton
-                                }}
-                                textStyle={{
-                                    ...styles.btnTextStyle,
-                                    color: '#6A707C'
-                                }}
+                                title="Cancel"
+                                style={styles.cancelButton}
+                                textStyle={styles.cancelButtonText}
                                 onPress={() => setShowConflictModal(false)}
-                                disabled={forceLoginLoading}
                             />
                             <AppButton
-                                title={forceLoginLoading ? 'Logging in...' : 'Yes'}
-                                style={{
-                                    ...styles.modalButton,
-                                    ...styles.confirmButton
-                                }}
-                                textStyle={styles.btnTextStyle}
+                                title={
+                                    forceLoginLoading ? 'Logging in...' : 'Force Login'
+                                }
+                                style={styles.forceLoginButton}
+                                textStyle={styles.forceLoginButtonText}
                                 onPress={handleForceLogin}
                                 disabled={forceLoginLoading}
-                                loader={
-                                    forceLoginLoading
-                                        ? {
-                                              position: 'right',
-                                              size: 'small',
-                                              color: '#FFFFFF'
-                                          }
-                                        : undefined
-                                }
                             />
                         </View>
                     </View>
                 </View>
             </Modal>
-
-            {/* <View
-                style={{
-                    flex: 1,
-                    justifyContent: 'flex-end',
-                    alignItems: 'center'
-                }}
-            >
-                <Text style={styles.buttomText}>
-                    Don't have an account?{' '}
-                    <Text
-                        onPress={() => NavigationService.navigate('Register')}
-                        style={{ color: '#35C2C1' }}
-                    >
-                        Register Now
-                    </Text>
-                </Text>
-            </View> */}
         </Container>
     );
 };
@@ -301,100 +223,82 @@ export default SignIn;
 
 const styles = StyleSheet.create({
     welcomeText: {
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(20),
-        marginHorizontal: 22,
-        marginVertical: moderateScale(12),
-        lineHeight: moderateScale(35)
+        fontFamily: FONTS.ProductSans.bold,
+        fontSize: moderateScale(24),
+        color: '#1E232C',
+        marginTop: moderateScale(20)
     },
     inputContainerStyle: {
-        borderColor: '#E8ECF4',
-        marginHorizontal: 22,
-        height: moderateScale(45),
-        backgroundColor: '#F7F8F9'
-    },
-    inputStyle: {
-        paddingLeft: 20,
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(11)
-    },
-    forgotPassText: {
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(12),
-        color: '#6A707C',
-        marginHorizontal: 22,
-        textAlign: 'right',
-        marginVertical: 10
-    },
-    btnTextStyle: {
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: 17,
-        color: '#fff'
-    },
-    socialBtnContainer: {
+        backgroundColor: '#F7F8F9',
         borderWidth: 1,
         borderColor: '#E8ECF4',
-        height: moderateScale(45),
-        flex: 1,
-        borderRadius: 10,
-        justifyContent: 'center',
-        alignItems: 'center'
+        borderRadius: moderateScale(8),
+        height: moderateScale(45)
     },
-    buttomText: {
-        marginBottom: moderateScale(20),
+    inputStyle: {
         fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(12)
+        fontSize: moderateScale(14)
+    },
+    forgotPassText: {
+        fontFamily: FONTS.ProductSans.bold,
+        fontSize: moderateScale(13),
+        color: '#6A707C',
+        alignSelf: 'flex-end',
+        marginTop: moderateScale(10)
+    },
+    btnTextStyle: {
+        fontFamily: FONTS.ProductSans.bold,
+        fontSize: moderateScale(14)
     },
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'center',
-        alignItems: 'center'
+        alignItems: 'center',
+        padding: moderateScale(20)
     },
-    modalContainer: {
-        backgroundColor: 'white',
-        borderRadius: 15,
-        padding: 25,
-        marginHorizontal: 20,
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5
+    modalContent: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: moderateScale(12),
+        padding: moderateScale(20),
+        width: '100%',
+        maxWidth: moderateScale(320)
     },
     modalTitle: {
+        fontFamily: FONTS.ProductSans.bold,
         fontSize: moderateScale(18),
-        fontFamily: FONTS.ProductSans.regular,
-        textAlign: 'center',
-        marginBottom: 15,
-        color: '#333'
+        color: '#1E232C',
+        marginBottom: moderateScale(10),
+        textAlign: 'center'
     },
     modalMessage: {
-        fontSize: moderateScale(14),
         fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(14),
+        color: '#6A707C',
         textAlign: 'center',
-        color: '#666',
-        lineHeight: moderateScale(22),
-        marginBottom: 25
+        marginBottom: moderateScale(20),
+        lineHeight: moderateScale(20)
     },
     modalButtonContainer: {
         flexDirection: 'row',
-        gap: 10
-    },
-    modalButton: {
-        flex: 1,
-        height: moderateScale(40),
-        borderRadius: 8
+        gap: moderateScale(10)
     },
     cancelButton: {
+        flex: 1,
         backgroundColor: '#F7F8F9',
-        borderWidth: 1,
-        borderColor: '#E8ECF4'
+        height: moderateScale(40)
     },
-    confirmButton: {
-        backgroundColor: '#35C2C1'
+    cancelButtonText: {
+        color: '#6A707C',
+        fontFamily: FONTS.ProductSans.bold
+    },
+    forceLoginButton: {
+        flex: 1,
+        backgroundColor: '#392969',
+        height: moderateScale(40)
+    },
+    forceLoginButtonText: {
+        color: '#FFFFFF',
+        fontFamily: FONTS.ProductSans.bold
     }
 });

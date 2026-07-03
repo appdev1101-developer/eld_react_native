@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import notifee, {
     AndroidImportance,
     AuthorizationStatus,
@@ -8,10 +9,26 @@ import messaging, {
 } from '@react-native-firebase/messaging';
 import { Platform } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
-import HttpClient from './HttpClient';
-import { getEldPermissionStatus, requestEldPermissions } from './EldPermissions';
+import { authApi } from '../core/api/services/authApi';
+import { isSuccess } from '../core/api/types/common';
+import {
+    getEldPermissionStatus,
+    requestNotificationPermission
+} from './EldPermissions';
 
 const DEFAULT_CHANNEL_ID = 'truxy_default';
+const FCM_REGISTERED_KEY = '@truxy/fcm_registered';
+
+type FcmRegisteredRecord = {
+    token: string;
+    userId: string | number | null;
+    platform: string;
+};
+
+type AuthState = {
+    isLoggedIn: boolean;
+    userId: string | number | null;
+};
 
 export type PushNotificationHandlers = {
     onForegroundMessage?: (message: FirebaseMessagingTypes.RemoteMessage) => void;
@@ -19,6 +36,34 @@ export type PushNotificationHandlers = {
         message?: FirebaseMessagingTypes.RemoteMessage
     ) => void;
 };
+
+const authRef: AuthState = {
+    isLoggedIn: false,
+    userId: null
+};
+
+let handlersRef: PushNotificationHandlers = {};
+let cleanupListeners: (() => void) | null = null;
+
+async function getRegisteredRecord(): Promise<FcmRegisteredRecord | null> {
+    try {
+        const raw = await AsyncStorage.getItem(FCM_REGISTERED_KEY);
+        if (!raw) {
+            return null;
+        }
+        return JSON.parse(raw) as FcmRegisteredRecord;
+    } catch {
+        return null;
+    }
+}
+
+async function saveRegisteredRecord(record: FcmRegisteredRecord): Promise<void> {
+    await AsyncStorage.setItem(FCM_REGISTERED_KEY, JSON.stringify(record));
+}
+
+async function clearRegisteredRecord(): Promise<void> {
+    await AsyncStorage.removeItem(FCM_REGISTERED_KEY);
+}
 
 async function createDefaultChannel(): Promise<string> {
     if (Platform.OS !== 'android') {
@@ -32,7 +77,7 @@ async function createDefaultChannel(): Promise<string> {
     });
 }
 
-async function requestPermission(): Promise<boolean> {
+async function ensureNotificationPermission(): Promise<boolean> {
     if (Platform.OS === 'ios') {
         const notifeeSettings = await notifee.requestPermission();
         const fcmAuthStatus = await messaging().requestPermission();
@@ -52,8 +97,7 @@ async function requestPermission(): Promise<boolean> {
         return true;
     }
 
-    const updated = await requestEldPermissions();
-    return updated.notifications;
+    return requestNotificationPermission();
 }
 
 async function getFcmToken(): Promise<string | null> {
@@ -66,29 +110,58 @@ async function getFcmToken(): Promise<string | null> {
     }
 }
 
-async function registerTokenWithBackend(token: string): Promise<void> {
+async function registerTokenWithBackend(token: string): Promise<boolean> {
     try {
-        await HttpClient.post('user/mobile/fcm-token', {
+        const result = await authApi.registerFcmToken({
             fcm_token: token,
             platform: Platform.OS,
             device_id: await DeviceInfo.getUniqueId()
         });
+        return isSuccess(result);
     } catch (error) {
         console.warn('Failed to register FCM token with backend:', error);
+        return false;
     }
 }
 
-async function syncFcmToken(): Promise<string | null> {
-    await createDefaultChannel();
-
-    const hasPermission = await requestPermission();
-    if (!hasPermission) {
+async function registerIfNeeded(forcedToken?: string): Promise<string | null> {
+    if (!authRef.isLoggedIn) {
         return null;
     }
 
-    const token = await getFcmToken();
-    if (token) {
-        await registerTokenWithBackend(token);
+    await createDefaultChannel();
+
+    const hasPermission = await ensureNotificationPermission();
+    if (!hasPermission) {
+        if (__DEV__) {
+            console.warn('FCM registration skipped: notification permission not granted');
+        }
+        return null;
+    }
+
+    const token = forcedToken ?? (await getFcmToken());
+    if (!token) {
+        return null;
+    }
+
+    const userId = authRef.userId;
+    const record = await getRegisteredRecord();
+    if (
+        record &&
+        record.token === token &&
+        record.userId === userId &&
+        record.platform === Platform.OS
+    ) {
+        return token;
+    }
+
+    const success = await registerTokenWithBackend(token);
+    if (success) {
+        await saveRegisteredRecord({
+            token,
+            userId,
+            platform: Platform.OS
+        });
     }
 
     return token;
@@ -118,20 +191,22 @@ async function displayRemoteMessage(
     });
 }
 
-function setupPushNotificationListeners(
-    handlers: PushNotificationHandlers = {}
-): () => void {
+function attachListeners(): () => void {
     const handleOpened = (
         message?: FirebaseMessagingTypes.RemoteMessage
     ) => {
-        if (handlers.onNotificationOpened) {
-            handlers.onNotificationOpened(message);
+        if (!authRef.isLoggedIn) {
+            return;
+        }
+
+        if (handlersRef.onNotificationOpened) {
+            handlersRef.onNotificationOpened(message);
         }
     };
 
     const unsubscribeForeground = messaging().onMessage(async (remoteMessage) => {
-        if (handlers.onForegroundMessage) {
-            handlers.onForegroundMessage(remoteMessage);
+        if (handlersRef.onForegroundMessage) {
+            handlersRef.onForegroundMessage(remoteMessage);
         } else {
             await displayRemoteMessage(remoteMessage);
         }
@@ -162,7 +237,7 @@ function setupPushNotificationListeners(
         .catch(() => {});
 
     const unsubscribeNotifeeForeground = notifee.onForegroundEvent(
-        ({ type, detail }) => {
+        ({ type }) => {
             if (type === EventType.PRESS) {
                 handleOpened();
             }
@@ -170,7 +245,10 @@ function setupPushNotificationListeners(
     );
 
     const unsubscribeTokenRefresh = messaging().onTokenRefresh(async (token) => {
-        await registerTokenWithBackend(token);
+        if (!authRef.isLoggedIn) {
+            return;
+        }
+        await registerIfNeeded(token);
     });
 
     return () => {
@@ -181,7 +259,38 @@ function setupPushNotificationListeners(
     };
 }
 
-async function deleteFcmToken(): Promise<void> {
+function initialize(handlers: PushNotificationHandlers = {}): () => void {
+    handlersRef = handlers;
+
+    if (!cleanupListeners) {
+        cleanupListeners = attachListeners();
+    }
+
+    return () => {
+        cleanupListeners?.();
+        cleanupListeners = null;
+        handlersRef = {};
+    };
+}
+
+function setAuthState({
+    isLoggedIn,
+    userId
+}: {
+    isLoggedIn: boolean;
+    userId?: string | number | null;
+}): void {
+    const wasLoggedIn = authRef.isLoggedIn;
+    authRef.isLoggedIn = isLoggedIn;
+    authRef.userId = userId ?? null;
+
+    if (wasLoggedIn && !isLoggedIn) {
+        clearLocalToken().catch(() => {});
+    }
+}
+
+async function clearLocalToken(): Promise<void> {
+    await clearRegisteredRecord();
     try {
         await messaging().deleteToken();
     } catch (error) {
@@ -189,12 +298,33 @@ async function deleteFcmToken(): Promise<void> {
     }
 }
 
+/** @deprecated Use initialize() once at app mount */
+function setupPushNotificationListeners(
+    handlers: PushNotificationHandlers = {}
+): () => void {
+    return initialize(handlers);
+}
+
+/** @deprecated Use registerIfNeeded() */
+async function syncFcmToken(): Promise<string | null> {
+    return registerIfNeeded();
+}
+
+/** @deprecated Use clearLocalToken() */
+async function deleteFcmToken(): Promise<void> {
+    await clearLocalToken();
+}
+
 const PushNotification = {
-    requestPermission,
+    initialize,
+    setAuthState,
+    registerIfNeeded,
+    ensureNotificationPermission,
     getFcmToken,
-    syncFcmToken,
     displayRemoteMessage,
+    clearLocalToken,
     setupPushNotificationListeners,
+    syncFcmToken,
     deleteFcmToken
 };
 

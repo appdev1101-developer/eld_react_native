@@ -9,6 +9,7 @@ import {
     View
 } from 'react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRecentChats } from '../../core/hooks/useRecentChats';
 import { Container, Icon, Text } from 'react-native-basic-elements';
 import AppStatusBar from '../../Components/AppStatusBar';
 import LinearGradient from 'react-native-linear-gradient';
@@ -21,106 +22,35 @@ import Modal from 'react-native-modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../Redux/store';
 import { useFocusEffect } from '@react-navigation/native';
-import messageWebSocket, { wsTotalMsgToChatPreview } from '../../Utils/MessageWebSocket';
-import { WsContact, WsTotalMsg } from '../../Model/Message';
-
-type ChatPreviewItem = {
-    id: string;
-    receiverId: number;
-    name: string;
-    avatar: string;
-    lastMessage: string;
-    timestamp: string;
-    unread?: number;
-    isGroup: boolean;
-    sentTime?: string;
-};
+import messageWebSocket from '../../Utils/MessageWebSocket';
+import { ChatPreviewItem } from '../../core/cache/messagesCache';
 
 const RecentChats = () => {
     const { userData } = useSelector((state: RootState) => state.User);
 
-    console.log("userData", JSON.stringify(userData));
     const senderId = userData?.id ?? 0;
     const masterId = userData?.master_id ?? senderId;
 
     const [search, setSearch] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [recentChats, setRecentChats] = useState<ChatPreviewItem[]>([]);
-    const [lastTalkedTo, setLastTalkedTo] = useState<
-        { id: string; name: string; avatar: string; receiverId: number; isGroup: boolean }[]
-    >([]);
-
-    const loadData = useCallback(async () => {
-        if (!senderId) {
-            setLoading(false);
-            return;
-        }
-
-        setLoading(true);
-
-        try {
-            await messageWebSocket.ensureConnected();
-
-            const totalMessages = await messageWebSocket.waitForMessages(
-                'totalMsg',
-                () => messageWebSocket.fetchTotalMessages(senderId, senderId)
-            );
-
-            const chatMap = new Map<string, ChatPreviewItem>();
-            (totalMessages as WsTotalMsg[]).forEach((msg) => {
-                const preview = wsTotalMsgToChatPreview(msg, senderId);
-                const existing = chatMap.get(preview.id);
-                if (
-                    !existing ||
-                    new Date(msg.sent_time).getTime() >
-                        new Date(existing.sentTime ?? 0).getTime()
-                ) {
-                    chatMap.set(preview.id, preview);
-                }
-            });
-
-            setRecentChats(
-                Array.from(chatMap.values()).sort(
-                    (a, b) =>
-                        new Date(b.sentTime ?? 0).getTime() -
-                        new Date(a.sentTime ?? 0).getTime()
-                )
-            );
-
-            const contacts = await messageWebSocket.waitForMessages(
-                ['driver_list', 'user_list', 'master_list'],
-                () => messageWebSocket.fetchUserInfo(senderId, masterId),
-                5000
-            );
-
-            const contactList = (contacts as WsContact[]).slice(0, 6).map((c) => ({
-                id: String(c.id),
-                receiverId: c.id,
-                name: `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() || 'Unknown',
-                avatar: c.image_url ?? '',
-                isGroup: false
-            }));
-            setLastTalkedTo(contactList);
-        } catch (error) {
-            console.warn('RecentChats load error', error);
-        } finally {
-            setLoading(false);
-        }
-    }, [senderId, masterId]);
+    const {
+        loading,
+        recentChats,
+        lastTalkedTo,
+        loadChats,
+        handleNewMessage
+    } = useRecentChats({ senderId, masterId });
 
     useFocusEffect(
         useCallback(() => {
-            loadData();
-        }, [loadData])
+            loadChats();
+        }, [loadChats])
     );
 
     useEffect(() => {
-        const unsub = messageWebSocket.on('new_message', () => {
-            loadData();
-        });
+        const unsub = messageWebSocket.on('new_message', handleNewMessage);
         return unsub;
-    }, [loadData]);
+    }, [handleNewMessage]);
 
     const filteredChats = useMemo(
         () =>

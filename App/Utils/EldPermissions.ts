@@ -176,6 +176,39 @@ async function requestPermissionGroup(
     return { denied, hasNeverAskAgain };
 }
 
+export async function hasNotificationPermission(): Promise<boolean> {
+    if (Platform.OS !== 'android') {
+        return true;
+    }
+
+    if (getAndroidApiLevel() < ANDROID_API_NOTIFICATIONS) {
+        return true;
+    }
+
+    return checkPermission(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+}
+
+/** Request notification permission only — does not prompt for Bluetooth or location. */
+export async function requestNotificationPermission(): Promise<boolean> {
+    if (Platform.OS !== 'android') {
+        return true;
+    }
+
+    if (getAndroidApiLevel() < ANDROID_API_NOTIFICATIONS) {
+        return true;
+    }
+
+    if (await hasNotificationPermission()) {
+        return true;
+    }
+
+    await requestPermissionGroup([
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+    ]);
+
+    return hasNotificationPermission();
+}
+
 /** Read current Bluetooth, location, and notification permission state (Android only). */
 export async function getEldPermissionStatus(): Promise<EldPermissionStatus> {
     if (Platform.OS !== 'android') {

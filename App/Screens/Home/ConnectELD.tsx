@@ -7,7 +7,13 @@ import {
     ActivityIndicator,
     Alert
 } from 'react-native';
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
+import {
+    CommonActions,
+    RouteProp,
+    useNavigation,
+    useRoute
+} from '@react-navigation/native';
 import {
     AppButton,
     AppTextInput,
@@ -20,9 +26,14 @@ import LinearGradient from 'react-native-linear-gradient';
 import HomeHeader from '../../Components/Headers/HomeHeader';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
-import NavigationService from '../../Services/Navigation';
 import Geometris, { BluetoothDevice } from '../../Utils/Geometris';
 import GeoDataBackgroundService from '../../Utils/GeoDataService';
+import {
+    markEldOnboardingSkipped,
+    shouldShowEldOnboarding
+} from '../../core/session/eldOnboarding';
+import { showError } from '../../Utils/toast';
+import { macAddress as validateMacAddress } from '../../Utils/validators';
 import {
     ensureEldPermissions,
     formatDeniedPermissionsMessage,
@@ -39,13 +50,66 @@ const ITEMS: Array<string> = [
     'Ensure GPS is enabled on the mobile device.'
 ];
 
+type ConnectELDRouteParams = {
+    fromDrawer?: boolean;
+};
+
 const ConnectELD = () => {
+    const navigation = useNavigation();
+    const route = useRoute<RouteProp<{ ConnectELD: ConnectELDRouteParams }, 'ConnectELD'>>();
+    const fromDrawer = route.params?.fromDrawer === true;
+
     const [macAddress, setMacAddress] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
     const [devices, setDevices] = useState<BluetoothDevice[]>([]);
     const [scanning, setScanning] = useState(false);
     const [connecting, setConnecting] = useState(false);
     const [connectionError, setConnectionError] = useState('');
+    const [checkingOnboarding, setCheckingOnboarding] = useState(!fromDrawer);
+
+    const goToDashboard = useCallback(() => {
+        navigation.dispatch(
+            CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'BottomTab' }]
+            })
+        );
+    }, [navigation]);
+
+    useEffect(() => {
+        if (fromDrawer) {
+            return;
+        }
+
+        let mounted = true;
+
+        shouldShowEldOnboarding()
+            .then((show) => {
+                if (!mounted) {
+                    return;
+                }
+                if (!show) {
+                    goToDashboard();
+                    return;
+                }
+                setCheckingOnboarding(false);
+            })
+            .catch(() => {
+                if (mounted) {
+                    setCheckingOnboarding(false);
+                }
+            });
+
+        return () => {
+            mounted = false;
+        };
+    }, [fromDrawer, goToDashboard]);
+
+    const handleSkip = async () => {
+        await markEldOnboardingSkipped();
+        goToDashboard();
+    };
+
     const requirePermissions = async (): Promise<boolean> => {
         const status = await ensureEldPermissions();
         if (status.allGranted) {
@@ -135,7 +199,7 @@ const ConnectELD = () => {
                     [
                         {
                             text: 'OK',
-                            onPress: () => NavigationService.navigate('BottomTab')
+                            onPress: goToDashboard
                         }
                     ]
                 );
@@ -188,6 +252,27 @@ const ConnectELD = () => {
         </TouchableOpacity>
     );
 
+    if (checkingOnboarding) {
+        return (
+            <Container>
+                <AppStatusBar />
+                <View
+                    style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        backgroundColor: '#392969'
+                    }}
+                >
+                    <ActivityIndicator
+                        size="large"
+                        color="#FFFFFF"
+                    />
+                </View>
+            </Container>
+        );
+    }
+
     return (
         <Container>
             <AppStatusBar />
@@ -196,12 +281,14 @@ const ConnectELD = () => {
                 colors={['#392969', '#7051CF']}
                 style={{ flex: 1 }}
             >
-                <HomeHeader showBack />
+                <HomeHeader showBack={fromDrawer} />
 
                 <View style={styles.bodyContainer}>
                         <Text style={styles.heading}>Connect ELD</Text>
                         <Text style={styles.macAddressText}>
-                            Enter the ELD MAC address to connect
+                            {fromDrawer
+                                ? 'Enter the ELD MAC address to connect'
+                                : 'Connect your ELD to access the dashboard, or skip for now'}
                         </Text>
 
                         <Text
@@ -306,51 +393,45 @@ const ConnectELD = () => {
                             textStyle={styles.btnText}
                             style={styles.btn}
                             onPress={async () => {
-                                if (macAddress) {
-                                    try {
-                                        setConnecting(true);
-                                        if (!(await requirePermissions())) {
-                                            setConnecting(false);
-                                            return;
-                                        }
-                                        const started =
-                                            await GeoDataBackgroundService.start(
-                                                macAddress
-                                            );
-                                        if (started) {
-                                            Alert.alert(
-                                                'Success',
-                                                'Connected to ELD device successfully!',
-                                                [
-                                                    {
-                                                        text: 'OK',
-                                                        onPress: () =>
-                                                            NavigationService.navigate(
-                                                                'BottomTab'
-                                                            )
-                                                    }
-                                                ]
-                                            );
-                                        } else {
-                                            Alert.alert(
-                                                'Connection Failed',
-                                                'Failed to connect to the device. Please check the MAC address and try again.'
-                                            );
-                                        }
-                                    } catch (error) {
-                                        console.error('Error connecting:', error);
-                                        Alert.alert(
-                                            'Connection Error',
-                                            'Error connecting to device. Please try again.'
-                                        );
-                                    } finally {
+                                const macCheck = validateMacAddress(macAddress);
+                                if (!macCheck.valid) {
+                                    showError(macCheck.message);
+                                    return;
+                                }
+
+                                const normalizedMac = macAddress.trim().toUpperCase();
+
+                                try {
+                                    setConnecting(true);
+                                    if (!(await requirePermissions())) {
                                         setConnecting(false);
+                                        return;
                                     }
-                                } else {
+                                    const started =
+                                        await GeoDataBackgroundService.start(
+                                            normalizedMac
+                                        );
+                                    if (started) {
+                                        setMacAddress(normalizedMac);
+                                        Alert.alert(
+                                            'Success',
+                                            'Connected to ELD device successfully!',
+                                            [{ text: 'OK', onPress: goToDashboard }]
+                                        );
+                                    } else {
+                                        Alert.alert(
+                                            'Connection Failed',
+                                            'Failed to connect to the device. Please check the MAC address and try again.'
+                                        );
+                                    }
+                                } catch (error) {
+                                    console.error('Error connecting:', error);
                                     Alert.alert(
-                                        'Missing Information',
-                                        'Please enter MAC address or select a device'
+                                        'Connection Error',
+                                        'Error connecting to device. Please try again.'
                                     );
+                                } finally {
+                                    setConnecting(false);
                                 }
                             }}
                             disabled={connecting || !macAddress}
@@ -360,7 +441,7 @@ const ConnectELD = () => {
                             title="Skip"
                             textStyle={styles.btnText}
                             style={{ ...styles.btn, ...styles.skipButton }}
-                            onPress={() => NavigationService.navigate('BottomTab')}
+                            onPress={handleSkip}
                             disabled={connecting}
                         />
 

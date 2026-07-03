@@ -6,12 +6,13 @@ import {
     WsReceiveType,
     WsTotalMsg
 } from '../Model/Message';
+import { MESSAGE_WEBSOCKET_URL } from './EnvVariables';
 
-const MESSAGE_WEBSOCKET_URL = 'wss://lms.learningink.com/socket'
+const FALLBACK_WEBSOCKET_URL = 'wss://lms.learningink.com/socket';
 type MessageHandler = (payload: Record<string, unknown>) => void;
 
 const getWebSocketUrl = (): string => {
-    return MESSAGE_WEBSOCKET_URL;
+    return MESSAGE_WEBSOCKET_URL || FALLBACK_WEBSOCKET_URL;
 };
 
 class MessageWebSocket {

@@ -6,7 +6,7 @@ import {
     Text,
     View
 } from 'react-native';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { Container } from 'react-native-basic-elements';
 import AppStatusBar from '../../Components/AppStatusBar';
@@ -16,12 +16,11 @@ import { moderateScale } from '../../Constants/PixelRatio';
 import NavigationService from '../../Services/Navigation';
 import { FONTS } from '../../Constants/Fonts';
 import ActivityCard from '../../Components/Compliance/ActivityCard';
-import DashboardService from '../../Services/Dashboard';
 import moment from 'moment';
 import HOSChart from '../../Components/Compliance/HOSChart';
-import { HOSChartData } from '../../Model/Dashboard';
+import { useCompliance } from '../../core/hooks/useCompliance';
+import { HosLogDayRecord } from '../../core/cache/complianceCache';
 
-type HosLogDayRecord = Record<string, unknown>;
 type HosDaySummary = { total_shift_time?: string };
 
 function getHosDayValues(
@@ -43,83 +42,26 @@ function getHosDaySummary(dayValues: unknown[]): HosDaySummary | undefined {
 }
 
 const Compliance = () => {
-    const [todayData, setTodaysData] = useState<HosLogDayRecord | null>(null);
-    const [hosData, setHosData] = useState<HosLogDayRecord[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [refreshing, setRefreshing] = useState<boolean>(false);
-    const [chartData, setChartData] = useState<HOSChartData>({
-        graph_data: [],
-        violation_data: {
-            Shift_data: [],
-            total_shift_time: ''
-        }
-    });
+    const {
+        todayData,
+        hosData,
+        chartData,
+        loading,
+        refreshing,
+        fetchCompliance,
+        refresh
+    } = useCompliance();
 
     const isFirstFocus = useRef(true);
 
     useFocusEffect(
         useCallback(() => {
-            getHOSData(isFirstFocus.current);
-            getHOSChartData();
+            fetchCompliance({ showLoading: isFirstFocus.current });
             if (isFirstFocus.current) {
                 isFirstFocus.current = false;
             }
-        }, [])
+        }, [fetchCompliance])
     );
-
-    const getHOSChartData = () => {
-        return DashboardService.getHOSChartData(moment().format('YYYY-MM-DD'))
-            .then((result) => {
-                if (result.status === 'success') {
-                    setChartData(result.data);
-                }
-            })
-            .catch((error) => {
-                console.log('error', error);
-            });
-    };
-
-    const getHOSData = (showLoading = false) => {
-        if (showLoading) {
-            setLoading(true);
-        }
-        return DashboardService.getHOSData(
-            moment().format('YYYY-MM-DD'),
-            moment().subtract(7, 'days').format('YYYY-MM-DD')
-        )
-            .then((result) => {
-                if (result.status === 'success') {
-                    const data = result.log_data;
-                    setTodaysData(
-                        data.find((item: HosLogDayRecord) =>
-                            Object.keys(item).includes(moment().format('YYYY-MM-DD'))
-                        )
-                    );
-
-                    setHosData(
-                        data.filter(
-                            (item: HosLogDayRecord) =>
-                                !Object.keys(item).includes(moment().format('YYYY-MM-DD'))
-                        )
-                    );
-                }
-            })
-            .catch((error) => {
-                console.log('error', error);
-            })
-            .finally(() => {
-                if (showLoading) {
-                    setLoading(false);
-                }
-            });
-    };
-
-    const onRefresh = useCallback(() => {
-        setRefreshing(true);
-        Promise.all([getHOSData(false), getHOSChartData()]).finally(() =>
-            setRefreshing(false)
-        );
-    }, []);
 
     if (loading) {
         return (
@@ -153,7 +95,7 @@ const Compliance = () => {
                         refreshControl={
                             <RefreshControl
                                 refreshing={refreshing}
-                                onRefresh={onRefresh}
+                                onRefresh={refresh}
                                 colors={['#392969']}
                                 tintColor="#392969"
                             />
@@ -179,7 +121,7 @@ const Compliance = () => {
                                             distance: todayValues[7],
                                             origin: todayValues[9],
                                             destination: todayValues[10],
-                                            coDriver: todayValues[5],
+                                            coDriver: todayValues[5]
                                         })
                                     }
                                 />
@@ -248,7 +190,7 @@ const Compliance = () => {
                                             distance: dayValues[7],
                                             origin: dayValues[9],
                                             destination: dayValues[10],
-                                            coDriver: dayValues[5],
+                                            coDriver: dayValues[5]
                                         })
                                     }
                                 />

@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import React from 'react';
-import { ActivityDataType } from '../../Screens/Home';
+import { ActivityDataType } from '../../Model/Home';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { Icon, Text } from 'react-native-basic-elements';
 import { FONTS } from '../../Constants/Fonts';

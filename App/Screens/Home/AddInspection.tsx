@@ -19,7 +19,8 @@ import HomeHeader from '../../Components/Headers/HomeHeader';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import NavigationService from '../../Services/Navigation';
-import DashboardService from '../../Services/Dashboard';
+import { inspectionApi } from '../../core/api/services/inspectionApi';
+import { isLegacySuccess } from '../../core/api/types/common';
 import { useRoute } from '@react-navigation/native';
 
 const data = [
@@ -68,11 +69,12 @@ const AddInspection: React.FC = () => {
     }, []);
 
     const getVehicleData = async () => {
-        DashboardService.getInspactionData()
+        inspectionApi.getCreateFormDataLegacy()
             .then((res) => {
-                if (res.status === 'success') {
-                    setVehicleData(res.data.vehicle);
-                    setDate(res.data.start_time);
+                if (isLegacySuccess(res)) {
+                    const data = res.data as { vehicle: unknown; start_time: string };
+                    setVehicleData(data.vehicle);
+                    setDate(data.start_time);
                 }
             })
             .catch((err) => {

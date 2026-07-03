@@ -1,4 +1,4 @@
-import { StyleSheet, ToastAndroid, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import React, { useState } from 'react';
 import {
     AppButton,
@@ -13,8 +13,14 @@ import HomeHeader from '../../Components/Headers/HomeHeader';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import Modal from 'react-native-modal';
-import DashboardService from '../../Services/Dashboard';
+import { mailApi } from '../../core/api/services/mailApi';
+import { isSuccess } from '../../core/api/types/common';
 import LottieView from 'lottie-react-native';
+import { requireOnline } from '../../core/network/requireOnline';
+import { showError, showToast } from '../../Utils/toast';
+import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
+import { email } from '../../Utils/validators';
+
 const DotInspection = () => {
     const [dotInspectionModal, setDotInspectionModal] = useState<boolean>(false);
     const [dotInspectionMailId, setDotInspectionMailId] = useState<string>('');
@@ -23,34 +29,46 @@ const DotInspection = () => {
     const [verifySuccess, setVerifySuccess] = useState<boolean>(false);
 
     const sendMail = () => {
-        if (dotInspectionMailId === '') {
-            ToastAndroid.show('Email Id is Required', ToastAndroid.SHORT);
+        const trimmedEmail = dotInspectionMailId.trim();
+        const emailValidation = email(trimmedEmail);
+        if (!emailValidation.valid) {
+            showError(emailValidation.message);
             return;
         }
-        // setMailLoader(true);
+
+        if (!requireOnline()) {
+            return;
+        }
+
+        setMailLoader(true);
         setVerifySuccess(false);
         setShowVerifyModal(true);
-        DashboardService.sendMail(dotInspectionMailId)
+
+        mailApi
+            .sendDotInspectionMail(trimmedEmail)
             .then((result) => {
-                if (result.status === 'success') {
+                if (isSuccess(result)) {
+                    setVerifySuccess(true);
                     setDotInspectionModal(false);
                     setDotInspectionMailId('');
+                    setTimeout(() => {
+                        setShowVerifyModal(false);
+                        setVerifySuccess(false);
+                    }, 1500);
                 } else {
-                    ToastAndroid.show(result.message, ToastAndroid.SHORT);
+                    setShowVerifyModal(false);
+                    showError(result.message ?? 'Failed to send file');
                 }
             })
             .catch((error) => {
-                console.log('error', error);
+                setShowVerifyModal(false);
+                showError(getApiErrorMessage(error, 'Failed to send file'));
             })
             .finally(() => {
-                // setMailLoader(false);
-                setVerifySuccess(true);
-                setTimeout(() => {
-                    setShowVerifyModal(false);
-                    setVerifySuccess(true);
-                }, 1500);
+                setMailLoader(false);
             });
     };
+
     return (
         <Container>
             <AppStatusBar />
@@ -88,6 +106,7 @@ const DotInspection = () => {
                                 fontFamily: FONTS.ProductSans.regular,
                                 fontSize: moderateScale(18)
                             }}
+                            onPress={() => showToast('Inspection flow coming soon')}
                         />
 
                         <Text
@@ -131,7 +150,7 @@ const DotInspection = () => {
                                 opacity: 0.5
                             }}
                         >
-                            Send your ELF Output File to the DOT if the officer requests
+                            Send your ELD Output File to the DOT if the officer requests
                             it
                         </Text>
                         <AppButton
@@ -150,52 +169,6 @@ const DotInspection = () => {
                             onPress={() => setDotInspectionModal(true)}
                         />
                     </View>
-
-                    {/* <View
-                        style={{
-                            paddingHorizontal: moderateScale(15),
-                            paddingVertical: moderateScale(25),
-                            alignItems: 'center'
-                        }}
-                    >
-                        <Text
-                            style={{
-                                color: '#33404F',
-                                fontFamily: FONTS.ProductSans.bold,
-                                fontSize: moderateScale(15)
-                            }}
-                        >
-                            Send logs of previous 7 days + today
-                        </Text>
-                        <Text
-                            style={{
-                                color: '#33404F',
-                                fontFamily: FONTS.ProductSans.regular,
-                                fontSize: moderateScale(11),
-                                marginVertical: moderateScale(15),
-                                textAlign: 'center',
-                                opacity: 0.5
-                            }}
-                        >
-                            Email your logs to the officer if they request a paper copy of
-                            your logs
-                        </Text>
-                        <AppButton
-                            title="Send Logs"
-                            style={{
-                                backgroundColor: '#F3C522',
-                                borderWidth: 1,
-                                borderColor: '#B19359',
-                                width: moderateScale(220)
-                            }}
-                            textStyle={{
-                                color: '#FFFFFF',
-                                fontFamily: FONTS.ProductSans.regular,
-                                fontSize: moderateScale(18)
-                            }}
-                            onPress={() => setDotInspectionModal(true)}
-                        />
-                    </View> */}
                 </View>
             </LinearGradient>
 
@@ -251,17 +224,8 @@ const DotInspection = () => {
                             borderRadius: moderateScale(40),
                             marginTop: moderateScale(20)
                         }}
-                        // loader={
-                        //     mailLoader
-                        //         ? {
-                        //               position: 'right',
-                        //               size: 'small',
-                        //               color: '#FFFFFF'
-                        //           }
-                        //         : undefined
-                        // }
                         onPress={sendMail}
-                        // disabled={mailLoader}
+                        disabled={mailLoader}
                     />
                 </View>
             </Modal>

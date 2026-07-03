@@ -39,7 +39,7 @@ const DrawerNavigation = () => {
             />
 
             <Drawer.Screen
-                name="Meaasge"
+                name="Message"
                 component={MessageStack}
             />
         </Drawer.Navigator>

@@ -1,34 +1,17 @@
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import React, { useCallback, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import React, { useCallback } from 'react';
 import { Container } from 'react-native-basic-elements';
 import { moderateScale } from '../../Constants/PixelRatio';
-import DashboardService from '../../Services/Dashboard';
-import { setConfigData, setUserInfo } from '../../Redux/reducer/User';
+import { useDashboard } from '../../core/hooks/useDashboard';
 
 const Profile = () => {
-    const dispatch = useDispatch();
-    const [refreshing, setRefreshing] = useState(false);
+    const { refresh, refreshing } = useDashboard();
 
     const onRefresh = useCallback(() => {
-        setRefreshing(true);
-        Promise.all([
-            DashboardService.getDashboard(),
-            DashboardService.getConfigData()
-        ])
-            .then(([dashboardData, configData]) => {
-                if (dashboardData.status === 'success') {
-                    dispatch(setUserInfo(dashboardData.userInfo));
-                }
-                if (configData.status === 'success') {
-                    dispatch(setConfigData(configData));
-                }
-            })
-            .catch((error) => {
-                console.log('bookmark refresh error', error);
-            })
-            .finally(() => setRefreshing(false));
-    }, [dispatch]);
+        refresh().catch((error) => {
+            console.log('profile refresh error', error);
+        });
+    }, [refresh]);
 
     return (
         <Container>

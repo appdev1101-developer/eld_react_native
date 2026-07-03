@@ -1,6 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { UserDataType, UserInfoDataType } from '../../Model/User';
-import AuthService from '../../Services/Auth';
 import { ConfigResponse } from '../../Model/Dashboard';
 
 interface UserReduxDataType {
@@ -16,6 +15,7 @@ const initialState: UserReduxDataType = {
     userInfo: null,
     configData: null
 };
+
 export const UserSlice = createSlice({
     name: 'user',
     initialState: initialState,
@@ -31,12 +31,14 @@ export const UserSlice = createSlice({
             state.configData = action.payload;
         },
         logout(state) {
-            AuthService.logout();
             state.userData = null;
             state.loginStatus = false;
+            state.userInfo = null;
+            state.configData = null;
         }
     }
 });
+
 export const { setUser, logout, setUserInfo, setConfigData } = UserSlice.actions;
 
 export default UserSlice.reducer;

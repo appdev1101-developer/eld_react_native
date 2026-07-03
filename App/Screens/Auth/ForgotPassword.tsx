@@ -1,4 +1,4 @@
-import { StyleSheet, ToastAndroid, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import React, { useState } from 'react';
 import {
     AppButton,
@@ -11,26 +11,43 @@ import AuthHeader from '../../Components/Headers/AuthHeader';
 import { FONTS } from '../../Constants/Fonts';
 import { moderateScale } from '../../Constants/PixelRatio';
 import NavigationService from '../../Services/Navigation';
-import AuthService from '../../Services/Auth';
+import { authApi } from '../../core/api/services/authApi';
+import { isLegacySuccess } from '../../core/api/types/common';
+import { requireOnline } from '../../core/network/requireOnline';
+import { showError, showToast } from '../../Utils/toast';
+import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
+import { email } from '../../Utils/validators';
 
 const ForgotPassword = () => {
     const colors = useTheme();
-    const [email, setEmail] = useState<string>('');
+    const [emailValue, setEmailValue] = useState<string>('');
 
     const handleForgotPassword = () => {
-        AuthService.forgotPass(email)
+        const emailValidation = email(emailValue);
+        if (!emailValidation.valid) {
+            showError(emailValidation.message);
+            return;
+        }
+
+        if (!requireOnline()) {
+            return;
+        }
+
+        authApi
+            .forgotPasswordLegacy(emailValue.trim())
             .then((result) => {
-                // console.log("result", result)
-                if (result.status === 'success') {
-                    ToastAndroid.show(result.message, ToastAndroid.SHORT);
-                    NavigationService.navigate('OtpVerification', { otp: result.otp, email });
+                if (isLegacySuccess(result)) {
+                    showToast(result.message ?? 'Verification code sent');
+                    NavigationService.navigate('OtpVerification', {
+                        otp: result.otp,
+                        email: emailValue.trim()
+                    });
                 } else {
-                    ToastAndroid.show(result.message, ToastAndroid.SHORT);
+                    showError(result.message ?? 'Failed to send verification code');
                 }
             })
             .catch((error) => {
-                // console.log("error", error)
-                ToastAndroid.show(error.error, ToastAndroid.SHORT);
+                showError(getApiErrorMessage(error, 'Failed to send verification code'));
             });
     };
 
@@ -55,8 +72,8 @@ const ForgotPassword = () => {
                 placeholder="Enter your email"
                 placeholderTextColor="#8391A1"
                 keyboardType="email-address"
-                value={email}
-                onChangeText={(val) => setEmail(val)}
+                value={emailValue}
+                onChangeText={(val) => setEmailValue(val)}
             />
 
             <AppButton

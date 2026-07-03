@@ -17,7 +17,7 @@ import NavigationService from '../Services/Navigation';
 import LinearGradient from 'react-native-linear-gradient';
 import { FONTS } from '../Constants/Fonts';
 import { useDispatch, useSelector } from 'react-redux';
-import { logout } from '../Redux/reducer/User';
+import { performLogout } from '../core/hooks/useSession';
 import { RootState } from '../Redux/store';
 import { getUserAvatarSource } from '../Constants/ProfileImage';
 
@@ -42,7 +42,7 @@ const CustomDrawerContent: React.FC<Props> = (props) => {
             source: require('../Assets/Icons/Device.png'),
             onPress: () => {
                 NavigationService.closeDrawer();
-                NavigationService.navigate('ConnectELD');
+                NavigationService.navigate('ConnectELD', { fromDrawer: true });
             }
         },
         {
@@ -60,7 +60,7 @@ const CustomDrawerContent: React.FC<Props> = (props) => {
             source: require('../Assets/Icons/messages.png'),
             onPress: () => {
                 NavigationService.closeDrawer();
-                NavigationService.navigate('Meaasge', {
+                NavigationService.navigate('Message', {
                     screen: 'RecentChats',
                     params: { showBack: true }
                 });
@@ -79,7 +79,7 @@ const CustomDrawerContent: React.FC<Props> = (props) => {
             source: require('../Assets/Icons/logout.png'),
             color: '#FA1740',
             onPress: () => {
-                dispatch(logout());
+                performLogout(dispatch);
             }
         }
     ];

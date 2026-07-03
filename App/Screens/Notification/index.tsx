@@ -7,7 +7,7 @@ import {
     StyleSheet,
     View
 } from 'react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { Container, Icon, Text } from 'react-native-basic-elements';
 import AppStatusBar from '../../Components/AppStatusBar';
@@ -15,76 +15,47 @@ import LinearGradient from 'react-native-linear-gradient';
 import HomeHeader from '../../Components/Headers/HomeHeader';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
-import DashboardService from '../../Services/Dashboard';
+import { useNotifications } from '../../core/hooks/useNotifications';
 import moment from 'moment';
 import Modal from 'react-native-modal';
 
 const Notification = () => {
     const [selectedTab, setSelectedTab] = useState<'ALL' | 'UNREAD' | 'READ'>('ALL');
-    const [allNotification, setAllNotification] = useState<Array<any>>([]);
-    const [allUnreadNotification, setAllUnreadNotification] = useState<Array<any>>([]);
-    const [allReadNotification, setAllReadNotification] = useState<Array<any>>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [refreshing, setRefreshing] = useState<boolean>(false);
     const [filterModal, setFilterModal] = useState<boolean>(false);
     const [selectedFilters, setSelectedFilters] = useState<number | null>(null);
+    const {
+        allNotifications,
+        unreadNotifications,
+        readNotifications,
+        loading,
+        refreshing,
+        loadNotifications,
+        refresh,
+        markAllRead
+    } = useNotifications();
 
     const isFirstFocus = useRef(true);
 
     useFocusEffect(
         useCallback(() => {
-            getAllNotification(isFirstFocus.current);
+            loadNotifications({ showLoading: isFirstFocus.current });
             if (isFirstFocus.current) {
                 isFirstFocus.current = false;
             }
-        }, [])
+        }, [loadNotifications])
     );
 
-    useEffect(() => {
-        if (selectedTab === 'UNREAD') {
-            DashboardService.readAllNotification()
-                .then((result) => {
-                    // if(resu)
-                    console.log('result', result);
-                })
-                .catch((error) => console.log('error', error));
-        }
-    }, [selectedTab]);
-
-    const getAllNotification = (showLoading = false) => {
-        if (showLoading) {
-            setLoading(true);
-        }
-        return DashboardService.getAllNotifications()
-            .then((result) => {
-                if (result.status === 'success') {
-                    setAllNotification(result.data.all_notifications);
-                    setAllUnreadNotification(result.data.unread_notifications);
-                    setAllReadNotification(result.data.read_notifications);
-                }
-            })
-            .catch((error) => {
-                console.log('error', error);
-            })
-            .finally(() => {
-                if (showLoading) {
-                    setLoading(false);
-                }
-            });
+    const handleMarkAllAsRead = () => {
+        markAllRead().catch((error) => console.log('error', error));
     };
-
-    const onRefresh = useCallback(() => {
-        setRefreshing(true);
-        getAllNotification(false).finally(() => setRefreshing(false));
-    }, []);
 
     const getData = () => {
         const data =
             selectedTab === 'ALL'
-                ? allNotification
+                ? allNotifications
                 : selectedTab === 'UNREAD'
-                ? allUnreadNotification
-                : allReadNotification;
+                ? unreadNotifications
+                : readNotifications;
         if (selectedFilters === null) {
             return data;
         } else {
@@ -123,7 +94,7 @@ const Notification = () => {
                     <View style={styles.header}>
                         <View style={styles.headerSideSpacer} />
                         <View style={styles.headerTitleWrap}>
-                            <Text style={styles.headerText}>Notofication</Text>
+                            <Text style={styles.headerText}>Notification</Text>
                         </View>
                         <Pressable
                             style={styles.headerAction}
@@ -135,6 +106,23 @@ const Notification = () => {
                             />
                         </Pressable>
                     </View>
+
+                    {unreadNotifications.length > 0 ? (
+                        <Pressable
+                            style={{ alignSelf: 'flex-end', marginBottom: 8, marginRight: 16 }}
+                            onPress={handleMarkAllAsRead}
+                        >
+                            <Text
+                                style={{
+                                    color: '#E4321B',
+                                    fontFamily: FONTS.ProductSans.regular,
+                                    fontSize: moderateScale(12)
+                                }}
+                            >
+                                Mark all as read
+                            </Text>
+                        </Pressable>
+                    ) : null}
 
                     <View style={styles.tab}>
                         <Pressable
@@ -179,7 +167,7 @@ const Notification = () => {
                                 Unread
                             </Text>
 
-                            {allUnreadNotification.length > 0 ? (
+                            {unreadNotifications.length > 0 ? (
                                 <View
                                     style={{
                                         height: moderateScale(18),
@@ -200,7 +188,7 @@ const Notification = () => {
                                             fontSize: moderateScale(12)
                                         }}
                                     >
-                                        3
+                                        {unreadNotifications.length}
                                     </Text>
                                 </View>
                             ) : null}
@@ -233,7 +221,7 @@ const Notification = () => {
                         refreshControl={
                             <RefreshControl
                                 refreshing={refreshing}
-                                onRefresh={onRefresh}
+                                onRefresh={refresh}
                                 colors={['#392969']}
                                 tintColor="#392969"
                             />

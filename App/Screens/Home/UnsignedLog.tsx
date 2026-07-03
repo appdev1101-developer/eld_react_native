@@ -4,10 +4,11 @@ import {
     Image,
     Pressable,
     StyleSheet,
-    ToastAndroid,
     View
 } from 'react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
 import { CheckBox, Container, Icon, Text } from 'react-native-basic-elements';
 import AppStatusBar from '../../Components/AppStatusBar';
 import LinearGradient from 'react-native-linear-gradient';
@@ -15,83 +16,89 @@ import HomeHeader from '../../Components/Headers/HomeHeader';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import moment from 'moment';
-import DashboardService from '../../Services/Dashboard';
+import { hosApi } from '../../core/api/services/hosApi';
+import { dashboardApi } from '../../core/api/services/dashboardApi';
+import { isSuccess } from '../../core/api/types/common';
+import { RootState } from '../../Redux/store';
+import { setDashboardBundle } from '../../Redux/reducer/Dashboard';
+import { getHomeCache, setHomeCache } from '../../core/cache/homeDataCache';
 import Modal from 'react-native-modal';
 import SignatureScreen, { SignatureViewRef } from 'react-native-signature-canvas';
-import AuthService from '../../Services/Auth';
+import { requireOnline } from '../../core/network/requireOnline';
+import { showError, showToast } from '../../Utils/toast';
+import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 
 const UnsignedLog = () => {
+    const dispatch = useDispatch();
+    const allUnsignedLogs = useSelector(
+        (state: RootState) => state.Dashboard.unsignedLogs
+    );
     const ref = useRef<SignatureViewRef>(null);
-    const [allUnsignedLogs, setAllUnsignedLogs] = useState<Array<any>>([]);
     const [showSigModal, setShowSigModal] = useState<boolean>(false);
     const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [loading, setLoading] = useState<boolean>(allUnsignedLogs.length === 0);
 
-    useEffect(() => {
-        getAllUnsignedLog();
-    }, []);
+    const refreshUnsignedLogs = useCallback(async () => {
+        const result = await dashboardApi.getUnsignedLogs();
+        if (isSuccess(result)) {
+            dispatch(
+                setDashboardBundle({
+                    unsignedLogs: result.data,
+                    unsignedLogCount: result.data.length
+                })
+            );
+            const cached = getHomeCache();
+            if (cached) {
+                setHomeCache({
+                    ...cached,
+                    unsignedLogs: result.data,
+                    unsignedLogCount: result.data.length
+                });
+            }
+        }
+        return result;
+    }, [dispatch]);
 
-    const getAllUnsignedLog = () => {
-        DashboardService.getAllUnsignedLog()
-            .then((result) => {
-                if (result.status === 'success') {
-                    setAllUnsignedLogs(result.data);
-                }
-            })
-            .catch((error) => console.log('error', error))
-            .finally(() => {
+    useFocusEffect(
+        useCallback(() => {
+            if (allUnsignedLogs.length > 0) {
                 setLoading(false);
-            });
-    };
+                return;
+            }
+            refreshUnsignedLogs().finally(() => setLoading(false));
+        }, [allUnsignedLogs.length, refreshUnsignedLogs])
+    );
 
     const uploadImage = async (base64String: string) => {
-        let token = await AuthService.getToken();
-        const mimeTypeMatch = base64String.match(/data:(.*);base64/);
-        if (!mimeTypeMatch) {
-            console.error('Invalid Base64 format');
+        if (!requireOnline()) {
             return;
         }
 
-        const mimeType = mimeTypeMatch[1]; // Extract MIME type
-        const base64Data = base64String.split(',')[1]; // Extract the Base64 data
+        const mimeTypeMatch = base64String.match(/data:(.*);base64/);
+        if (!mimeTypeMatch) {
+            showError('Invalid signature format');
+            return;
+        }
 
-        const formData = new FormData();
-        formData.append('signature', {
-            uri: `data:${mimeType};base64,${base64Data}`,
-            name: `signature.${mimeType.split('/')[1]}`, // e.g., image.jpeg
-            type: mimeType
-        } as any); // `as any` is needed because FormData types in RN may conflict
+        const mimeType = mimeTypeMatch[1];
+        const base64Data = base64String.split(',')[1];
+        const signatureUri = `data:${mimeType};base64,${base64Data}`;
 
-        formData.append('id', selectedLogId);
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', 'https://uat.apnatelelink.us/mobileAPI/hos/log/unsigned', true);
-        xhr.setRequestHeader('Accept', '*/*');
-        xhr.setRequestHeader('Content-Type', 'multipart/form-data');
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-
-        xhr.onload = () => {
-            if (xhr.status === 200) {
-                ToastAndroid.show(
-                    JSON.parse(xhr.responseText).message,
-                    ToastAndroid.SHORT
-                );
+        try {
+            const result = await hosApi.submitUnsignedLogSignature(
+                selectedLogId,
+                signatureUri,
+                mimeType
+            );
+            showToast(result.message);
+            if (isSuccess(result)) {
                 setShowSigModal(false);
                 setSelectedLogId(null);
-                getAllUnsignedLog();
-            } else {
-                ToastAndroid.show(
-                    JSON.parse(xhr.responseText).message,
-                    ToastAndroid.SHORT
-                );
+                await refreshUnsignedLogs();
             }
-        };
-
-        xhr.onerror = (error) => {
-            console.log('error', error);
-            console.error('Network error:', error);
-        };
-
-        xhr.send(formData);
+        } catch (error: unknown) {
+            showError(getApiErrorMessage(error, 'Failed to upload signature'));
+        }
     };
 
     if (loading) {
@@ -110,7 +117,7 @@ const UnsignedLog = () => {
             </View>
         );
     }
-    
+
     return (
         <Container>
             <AppStatusBar />
@@ -129,16 +136,16 @@ const UnsignedLog = () => {
                     {allUnsignedLogs.length > 0 ? (
                         <FlatList
                             data={allUnsignedLogs}
-                            keyExtractor={(item, index) => index.toString()}
-                            renderItem={({ item }) => {
+                            keyExtractor={(item: any, index) =>
+                                String(item?.id ?? index)
+                            }
+                            renderItem={({ item }: any) => {
                                 return (
                                     <Pressable
                                         style={{
                                             marginHorizontal: moderateScale(15),
                                             flexDirection: 'row',
                                             alignItems: 'center',
-                                            // marginBottom: moderateScale(10),
-                                            // marginTop: moderateScale(15),
                                             height: moderateScale(55)
                                         }}
                                         onPress={() => {
@@ -161,17 +168,21 @@ const UnsignedLog = () => {
                                             <Text
                                                 style={{
                                                     color: '#33404F',
-                                                    fontFamily: FONTS.ProductSans.regular,
+                                                    fontFamily:
+                                                        FONTS.ProductSans.regular,
                                                     textTransform: 'uppercase',
                                                     fontSize: moderateScale(15)
                                                 }}
                                             >
                                                 <Text
                                                     style={{
-                                                        fontFamily: FONTS.ProductSans.bold
+                                                        fontFamily:
+                                                            FONTS.ProductSans.bold
                                                     }}
                                                 >
-                                                    {moment(item.timeData).format('dddd')}{' '}
+                                                    {moment(item.timeData).format(
+                                                        'dddd'
+                                                    )}{' '}
                                                 </Text>
                                                 {moment(item.timeData).format(
                                                     'YYYY-MM-DD'
@@ -286,7 +297,6 @@ const UnsignedLog = () => {
                         clearText="Clear Signature"
                         confirmText="Accept"
                     />
-                    {/* <View style={{ flex: 1, backgroundColor: 'red' }} /> */}
                 </View>
             </Modal>
         </Container>

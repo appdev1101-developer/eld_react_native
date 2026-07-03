@@ -1,14 +1,17 @@
-import { Image, StyleSheet, ToastAndroid, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import React, { useState } from 'react';
 import { moderateScale } from '../../Constants/PixelRatio';
 import HomeCard from './HomeCard';
 import { StatusDataType } from '../../Screens/Home';
 import { AppTextInput, Card, Icon, Text } from 'react-native-basic-elements';
 import { FONTS } from '../../Constants/Fonts';
+import { showError } from '../../Utils/toast';
+import { required } from '../../Utils/validators';
 
 type Props = {
     data: Array<StatusDataType>;
     selectedStatus?: StatusDataType;
+    locationLabel?: string;
     onSelect?: (item: StatusDataType) => void;
     onBack?: () => void;
     onConfirm?: (item: StatusDataType, remarks: string) => void;
@@ -16,6 +19,7 @@ type Props = {
 const AllStatus: React.FC<Props> = ({
     data,
     selectedStatus,
+    locationLabel = 'Location unavailable',
     onSelect = () => {},
     onBack = () => {},
     onConfirm = () => {}
@@ -29,9 +33,10 @@ const AllStatus: React.FC<Props> = ({
         }
 
         const trimmedRemarks = remarks.trim();
-        if (!trimmedRemarks) {
-            setRemarksError('Remarks is required');
-            ToastAndroid.show('Please add remarks', ToastAndroid.SHORT);
+        const remarksValidation = required(trimmedRemarks, 'Remarks');
+        if (!remarksValidation.valid) {
+            setRemarksError(remarksValidation.message);
+            showError(remarksValidation.message);
             return;
         }
 
@@ -62,7 +67,7 @@ const AllStatus: React.FC<Props> = ({
                                 color: '#7D8083',
                                 fontSize: moderateScale(9.5)
                             }}
-                            value="7986 1.0mi SSW from Tijuana, Baja California"
+                            value={locationLabel}
                             rightAction={
                                 <Icon
                                     name="edit-square"

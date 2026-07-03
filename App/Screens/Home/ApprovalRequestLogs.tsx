@@ -4,7 +4,6 @@ import {
     Image,
     Pressable,
     StyleSheet,
-    ToastAndroid,
     View
 } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
@@ -16,44 +15,80 @@ import HomeHeader from '../../Components/Headers/HomeHeader';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import moment from 'moment';
-import DashboardService from '../../Services/Dashboard';
+import { useDispatch, useSelector } from 'react-redux';
+import { dashboardApi } from '../../core/api/services/dashboardApi';
+import { isSuccess } from '../../core/api/types/common';
+import { ApprovalRequestType } from '../../core/api/endpoints';
+import { RootState } from '../../Redux/store';
+import { setDashboardBundle } from '../../Redux/reducer/Dashboard';
+import { getHomeCache, setHomeCache } from '../../core/cache/homeDataCache';
 import Modal from 'react-native-modal';
 import SignatureScreen, { SignatureViewRef } from 'react-native-signature-canvas';
-import AuthService from '../../Services/Auth';
-
+import { requireOnline } from '../../core/network/requireOnline';
+import { showError, showToast } from '../../Utils/toast';
+import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 const ApprovalRequestLogs = () => {
     const route = useRoute<any>();
+    const dispatch = useDispatch();
+    const approvals = useSelector((state: RootState) => state.Dashboard.approvals);
     const ref = useRef<SignatureViewRef>(null);
-    const [allApprovalRequests, setAllApprovalRequests] = useState<Array<any>>([]);
+    const requestType = route.params?.type as ApprovalRequestType;
+    const allApprovalRequests = (approvals[requestType] as Array<any>) ?? [];
     const [selectedLogId, setSelectedLogId] = useState<number[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [loading, setLoading] = useState<boolean>(
+        allApprovalRequests.length === 0
+    );
 
-    useEffect(() => {
-        getApprovalRequests();
-    }, []);
-
-    const getApprovalRequests = () => {
-        DashboardService.getApprovalRequestIndex()
-            .then((res) => {
-                if (res.status.toLowerCase() === 'success') {
-                    setAllApprovalRequests(res.data[route.params?.type]);
+    const refreshApprovals = async () => {
+        setLoading(true);
+        try {
+            const result = await dashboardApi.getApprovalRequests();
+            if (isSuccess(result)) {
+                dispatch(setDashboardBundle({ approvals: result.data }));
+                const cached = getHomeCache();
+                if (cached) {
+                    setHomeCache({ ...cached, approvals: result.data });
                 }
-            })
-            .finally(() => {
-                setLoading(false);
-            });
+            }
+        } finally {
+            setLoading(false);
+        }
     };
 
+    useEffect(() => {
+        if (allApprovalRequests.length === 0) {
+            refreshApprovals();
+        }
+    }, []);
+
     const approveSelectedRequests = (status: number) => {
-        DashboardService.changeApprovalRequestStatus(route.params?.type, status, {
-            log_id: selectedLogId.join(',')
-        })
+        if (selectedLogId.length === 0) {
+            showError('Please select at least one request');
+            return;
+        }
+
+        if (!requireOnline()) {
+            return;
+        }
+
+        setLoading(true);
+        dashboardApi
+            .markApprovalStatus(requestType, status, {
+                log_id: selectedLogId.join(',')
+            })
             .then((res) => {
-                if (res.status.toLowerCase() === 'success') {
-                    ToastAndroid.show(`${status === 1 ? 'Approved' : 'Rejected'} successfully`, ToastAndroid.SHORT);
-                    getApprovalRequests();
+                if (isSuccess(res)) {
+                    showToast(
+                        `${status === 1 ? 'Approved' : 'Rejected'} successfully`
+                    );
+                    refreshApprovals();
                     setSelectedLogId([]);
+                } else {
+                    showError(res.message ?? 'Failed to update request');
                 }
+            })
+            .catch((error) => {
+                showError(getApiErrorMessage(error, 'Failed to update request'));
             })
             .finally(() => {
                 setLoading(false);

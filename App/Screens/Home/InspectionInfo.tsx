@@ -4,7 +4,6 @@ import {
     Image,
     Pressable,
     StyleSheet,
-    ToastAndroid,
     View
 } from 'react-native';
 import React, { useEffect, useState } from 'react';
@@ -23,9 +22,13 @@ import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import { useRoute } from '@react-navigation/native';
 import moment from 'moment';
-import DashboardService from '../../Services/Dashboard';
+import { inspectionApi } from '../../core/api/services/inspectionApi';
+import { isLegacySuccess, isSuccess } from '../../core/api/types/common';
 import ImagePicker from 'react-native-image-crop-picker';
 import NavigationService from '../../Services/Navigation';
+import { requireOnline } from '../../core/network/requireOnline';
+import { showError, showToast } from '../../Utils/toast';
+import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 
 const InspectionInfo: React.FC = () => {
     const route = useRoute<any>();
@@ -43,12 +46,17 @@ const InspectionInfo: React.FC = () => {
     }, []);
 
     const getVehicleData = async () => {
-        DashboardService.getInspactionData()
+        inspectionApi.getCreateFormDataLegacy()
             .then((res) => {
-                if (res.status === 'success') {
-                    setInspectionType(res.data.inspection_type);
-                    setParts(res.data.parts_type);
-                    setDefectType(res.data.defect_type);
+                if (isLegacySuccess(res)) {
+                    const data = res.data as {
+                        inspection_type: Array<any>;
+                        parts_type: Array<any>;
+                        defect_type: Array<any>;
+                    };
+                    setInspectionType(data.inspection_type);
+                    setParts(data.parts_type);
+                    setDefectType(data.defect_type);
                 }
             })
             .catch((err) => {
@@ -79,16 +87,21 @@ const InspectionInfo: React.FC = () => {
 
     const submit = () => {
         if (parts.findIndex((it) => !it.selected && !it.isDefected) >= 0) {
-            ToastAndroid.show('Please Select all Parts', ToastAndroid.SHORT);
+            showError('Please select all parts');
             return;
         }
+
+        if (!requireOnline()) {
+            return;
+        }
+
         setSubmitLoader(true);
         let data = {
             inspection_type: selectedInspectionType,
             vehicle_id: route.params.vehicleData.vechile_id,
             inspection_start_time: route.params.date,
             parts_data: parts.reduce((prev, current) => {
-                const data = {
+                const data: Record<string, unknown> = {
                     parts_id: current.option_id,
                     is_ok: current.selected ? 1 : 2,
                     defect_type: current.defectType?.find((it: any) => it.selected)
@@ -96,25 +109,27 @@ const InspectionInfo: React.FC = () => {
                     notes: current.notes
                 };
 
+                if (current.image) {
+                    data.defect_image = current.image;
+                    data.image = current.image;
+                }
+
                 return [...prev, data];
             }, new Array<any>())
         };
 
-        DashboardService.addInspection(data)
+        inspectionApi
+            .submitInspection(data)
             .then((result) => {
-                if (result.status === 'success') {
-                    ToastAndroid.show(
-                        'Inspection Added Successfully',
-                        ToastAndroid.SHORT
-                    );
-
+                if (isSuccess(result)) {
+                    showToast('Inspection added successfully');
                     NavigationService.navigate('MainHome');
                 } else {
-                    ToastAndroid.show(result.message, ToastAndroid.SHORT);
+                    showError(result.message);
                 }
             })
             .catch((error) => {
-                console.log('error', error);
+                showError(getApiErrorMessage(error, 'Failed to submit inspection'));
             })
             .finally(() => {
                 setSubmitLoader(false);

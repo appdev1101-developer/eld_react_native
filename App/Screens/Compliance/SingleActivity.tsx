@@ -5,7 +5,6 @@ import {
     Pressable,
     ScrollView,
     StyleSheet,
-    ToastAndroid,
     View
 } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -24,11 +23,14 @@ import ActivityCard from '../../Components/Compliance/ActivityCard';
 import { FONTS } from '../../Constants/Fonts';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import SignatureScreen, { SignatureViewRef } from 'react-native-signature-canvas';
-import AuthService from '../../Services/Auth';
 import moment from 'moment';
 import { HOSChartData } from '../../Model/Dashboard';
-import DashboardService from '../../Services/Dashboard';
+import { hosApi } from '../../core/api/services/hosApi';
+import { isLegacySuccess, isSuccess } from '../../core/api/types/common';
 import HOSChart from '../../Components/Compliance/HOSChart';
+import { requireOnline } from '../../core/network/requireOnline';
+import { showError, showToast } from '../../Utils/toast';
+import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 
 const { width } = Dimensions.get('screen');
 const SingleActivity = () => {
@@ -82,11 +84,11 @@ const SingleActivity = () => {
     // }, []);
 
     const getHOSChartData = () => {
-        DashboardService.getHOSChartData(moment(route.params.date).format('YYYY-MM-DD'))
+        hosApi
+            .getChartDataLegacy(moment(route.params.date).format('YYYY-MM-DD'))
             .then((result) => {
-                if (result.status === 'success') {
-                    const data = result.data;
-                    setChartData(data);
+                if (isLegacySuccess(result)) {
+                    setChartData(result.data as HOSChartData);
                 }
             })
             .catch((error) => {
@@ -95,57 +97,40 @@ const SingleActivity = () => {
     };
 
     const uploadImage = async (base64String: string) => {
-        let token = await AuthService.getToken();
         const mimeTypeMatch = base64String.match(/data:(.*);base64/);
         if (!mimeTypeMatch) {
             console.error('Invalid Base64 format');
             return;
         }
 
-        const mimeType = mimeTypeMatch[1]; // Extract MIME type
-        const base64Data = base64String.split(',')[1]; // Extract the Base64 data
+        const mimeType = mimeTypeMatch[1];
+        const base64Data = base64String.split(',')[1];
+        const signatureUri = `data:${mimeType};base64,${base64Data}`;
 
-        const formData = new FormData();
-        formData.append('signature', {
-            uri: `data:${mimeType};base64,${base64Data}`,
-            name: `signature.${mimeType.split('/')[1]}`, // e.g., image.jpeg
-            type: mimeType
-        } as any); // `as any` is needed because FormData types in RN may conflict
+        if (!requireOnline()) {
+            return;
+        }
 
-        const xhr = new XMLHttpRequest();
-
-        xhr.open(
-            'POST',
-            `https://uat.apnatelelink.us/mobileAPI/hos/log/unsigned/certify/${route.params.date}`,
-            true
-        );
-        xhr.setRequestHeader('Accept', '*/*');
-        xhr.setRequestHeader('Content-Type', 'multipart/form-data');
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-
-        xhr.onload = () => {
-            if (xhr.status === 200) {
-                ToastAndroid.show(
-                    JSON.parse(xhr.responseText).message,
-                    ToastAndroid.SHORT
-                );
-            } else {
-                ToastAndroid.show(
-                    JSON.parse(xhr.responseText).message,
-                    ToastAndroid.SHORT
-                );
+        try {
+            const result = await hosApi.certifyLogSignature(
+                route.params.date,
+                signatureUri,
+                mimeType
+            );
+            showToast(result.message);
+            if (!isSuccess(result)) {
+                return;
             }
-        };
-
-        xhr.onerror = (error) => {
-            console.log('error', error);
-            console.error('Network error:', error);
-        };
-
-        xhr.send(formData);
+        } catch (error: unknown) {
+            showError(getApiErrorMessage(error, 'Failed to certify log'));
+        }
     };
 
     const handleEditForm = () => {
+        if (!requireOnline()) {
+            return;
+        }
+
         const data = {
             first_name: driverName.split(' ')[0],
             last_name: driverName.split(' ')[1],
@@ -161,16 +146,15 @@ const SingleActivity = () => {
             codriver_id: selecetdCoDriver
         };
 
-        DashboardService.editActivityForm(data)
+        hosApi.editActivity(data)
             .then((result) => {
-                if (result.status === 'success') {
-                    ToastAndroid.show(result.message, ToastAndroid.SHORT);
-                } else {
-                    ToastAndroid.show(result.message, ToastAndroid.SHORT);
+                showToast(result.message);
+                if (!isSuccess(result)) {
+                    return;
                 }
             })
             .catch((error) => {
-                console.log('error', error);
+                showError(getApiErrorMessage(error, 'Failed to update activity'));
             });
     };
 

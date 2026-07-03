@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Container, Text } from 'react-native-basic-elements';
 import AppStatusBar from '../../Components/AppStatusBar';
 import LinearGradient from 'react-native-linear-gradient';
@@ -7,25 +7,18 @@ import HomeHeader from '../../Components/Headers/HomeHeader';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import HomeMenuCard from '../../Components/Home/HomeMenuCard';
-import DashboardService from '../../Services/Dashboard';
 import NavigationService from '../../Services/Navigation';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../Redux/store';
 
 const Safety = () => {
-    const [safetyData, setSafetyData] = useState<Array<any>>([]);
+    const { configData } = useSelector((state: RootState) => state.User);
 
-    useEffect(() => {
-        getConfigData();
-    }, []);
+    const safetyData = useMemo(
+        () => configData?.safety_type ?? [],
+        [configData?.safety_type]
+    );
 
-    const getConfigData = () => {
-        DashboardService.getConfigData()
-            .then((result) => {
-                if (result.status === 'success') {
-                    setSafetyData(result.safety_type);
-                }
-            })
-            .catch((error) => console.log('error', error));
-    };
     return (
         <Container>
             <AppStatusBar />
