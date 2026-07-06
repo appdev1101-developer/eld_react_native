@@ -7,8 +7,7 @@ import {
     RefreshControl,
     ScrollView,
     StyleSheet,
-    View,
-    DeviceEventEmitter
+    View
 } from 'react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
@@ -28,10 +27,13 @@ import { RootState } from '../../Redux/store';
 import { dashboardApi } from '../../core/api/services/dashboardApi';
 import { isLegacySuccess } from '../../core/api/types/common';
 import { useDashboard } from '../../core/hooks/useDashboard';
-import { getDutyStatusCoordinates } from '../../core/location/getDutyStatusLocation';
+import {
+    getDutyStatusCoordinates,
+    isDutyStatusLocationValid
+} from '../../core/location/getDutyStatusLocation';
+import { useDutyStatusLocation } from '../../core/hooks/useDutyStatusLocation';
 import HomeMenuCard from '../../Components/Home/HomeMenuCard';
 import NavigationService from '../../Services/Navigation';
-import { GeoData } from '../../Utils/Geometris';
 import GeoDataBackgroundService from '../../Utils/GeoDataService';
 import { getUnreadMessageCount } from '../../core/cache/messagesCache';
 import { prefetchNotifications } from '../../core/hooks/useNotifications';
@@ -131,8 +133,10 @@ const Home = () => {
     const [showVerifyModal, setShowVerifyModal] = useState<boolean>(false);
     const [verifySuccess, setVerifySuccess] = useState<boolean>(false);
 
-    const [geoData, setGeoData] = useState<GeoData | null>(null);
     const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+    const { location: dutyStatusLocation, getFreshCoordinates } = useDutyStatusLocation({
+        enabled: showStatus
+    });
     const goToMessages = () => NavigationService.navigate('Messages');
 
     const isFirstFocus = useRef(true);
@@ -157,26 +161,28 @@ const Home = () => {
         GeoDataBackgroundService.restoreIfNeeded().catch(() => {});
     }, []);
 
-    useEffect(() => {
-        // Set up event listener for GeoData from native module
-        const geoDataListener = DeviceEventEmitter.addListener('GeometrisData', (data: GeoData) => {
-            setGeoData(data);
-        });
-
-        return () => {
-            geoDataListener.remove();
-        };
-    }, []);
-
-    const changeStatus = (data: StatusDataType, remarks: string) => {
+    const changeStatus = async (data: StatusDataType, remarks: string) => {
         if (!requireOnline()) {
             setShowVerifyModal(false);
             return;
         }
 
-        const { lat, lng } = getDutyStatusCoordinates(geoData);
+        const freshLocation = await getFreshCoordinates();
+        if (!isDutyStatusLocationValid(freshLocation)) {
+            setShowVerifyModal(false);
+            showError('Location unavailable. Enable GPS or connect your ELD device.');
+            return;
+        }
+
+        const coords = getDutyStatusCoordinates(freshLocation);
+        if (!coords) {
+            setShowVerifyModal(false);
+            showError('Location unavailable. Enable GPS or connect your ELD device.');
+            return;
+        }
+
         dashboardApi
-            .changeDutyStatusLegacy(data.id, lat, lng, remarks)
+            .changeDutyStatusLegacy(data.id, coords.lat, coords.lng, remarks)
             .then((result) => {
                 if (isLegacySuccess(result)) {
                     setVerifySuccess(true);
@@ -295,7 +301,7 @@ const Home = () => {
                     {showStatus ? (
                         <AllStatus
                             selectedStatus={selectedStatus}
-                            locationLabel={formatLocationLabel(geoData)}
+                            locationLabel={formatLocationLabel(dutyStatusLocation)}
                             data={AllStatusData}
                             onSelect={setSelectedStatus}
                             onBack={() => setSelectedStatus(undefined)}

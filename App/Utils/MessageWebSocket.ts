@@ -15,6 +15,17 @@ const getWebSocketUrl = (): string => {
     return MESSAGE_WEBSOCKET_URL || FALLBACK_WEBSOCKET_URL;
 };
 
+function getWebSocketErrorMessage(error: unknown): string {
+    if (error && typeof error === 'object' && 'message' in error) {
+        return String((error as { message?: unknown }).message ?? '');
+    }
+    return String(error ?? 'Unknown WebSocket error');
+}
+
+function isPermanentWebSocketFailure(message: string): boolean {
+    return /404|403|401|500|502|503/i.test(message);
+}
+
 class MessageWebSocket {
     private ws: WebSocket | null = null;
     private handlers = new Map<WsReceiveType | 'open' | 'close' | 'error', Set<MessageHandler>>();
@@ -35,10 +46,12 @@ class MessageWebSocket {
 
         this.connectPromise = new Promise((resolve, reject) => {
             const url = getWebSocketUrl();
+            let opened = false;
             const socket = new WebSocket(url);
             this.ws = socket;
 
             socket.onopen = () => {
+                opened = true;
                 this.connectPromise = null;
                 this.emit('open', {});
                 resolve();
@@ -56,15 +69,29 @@ class MessageWebSocket {
             };
 
             socket.onerror = (error) => {
+                const message = getWebSocketErrorMessage(error);
+                if (isPermanentWebSocketFailure(message)) {
+                    this.shouldReconnect = false;
+                }
+
+                console.warn('MessageWebSocket connection error', {
+                    url,
+                    message
+                });
+
                 this.connectPromise = null;
-                this.emit('error', { error });
-                reject(error);
+                this.emit('error', { error, url, message });
+                reject(new Error(message || `WebSocket failed to connect (${url})`));
             };
 
-            socket.onclose = () => {
+            socket.onclose = (event) => {
                 this.connectPromise = null;
                 this.ws = null;
-                this.emit('close', {});
+                this.emit('close', { code: event.code, reason: event.reason });
+
+                if (!opened && isPermanentWebSocketFailure(event.reason ?? '')) {
+                    this.shouldReconnect = false;
+                }
 
                 if (this.shouldReconnect) {
                     this.reconnectTimer = setTimeout(() => {
@@ -103,7 +130,6 @@ class MessageWebSocket {
     }
 
     private emit(event: WsReceiveType | 'open' | 'close' | 'error', payload: Record<string, unknown>) {
-        console.log('emit', event, payload);
         this.handlers.get(event)?.forEach((handler) => handler(payload));
     }
 

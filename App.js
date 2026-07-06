@@ -132,10 +132,10 @@ const App = () => {
             disconnectRealtime().catch(() => {});
             return;
         }
-        // ToDo: I manually commented this code. Need to verify.
-        // messageWebSocket.connect().catch((error) => {
-        //     console.warn('MessageWebSocket connect failed', error);
-        // });
+        //ToDo: I manually commented this code. Need to verify.
+        messageWebSocket.connect().catch((error) => {
+            console.warn('MessageWebSocket connect failed', error);
+        });
     }, [disconnectRealtime, loginStatus]);
 
     return (

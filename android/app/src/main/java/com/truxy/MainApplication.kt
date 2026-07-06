@@ -24,6 +24,7 @@ class MainApplication : Application(), ReactApplication {
               // add(MyReactNativePackage())
                 add(GeometrisPackage())
                 add(GeoDataServicePackage())
+                add(DeviceLocationPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"

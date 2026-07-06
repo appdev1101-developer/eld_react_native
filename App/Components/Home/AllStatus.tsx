@@ -19,7 +19,7 @@ type Props = {
 const AllStatus: React.FC<Props> = ({
     data,
     selectedStatus,
-    locationLabel = 'Location unavailable',
+    locationLabel = 'Location unavailable — enable GPS or connect ELD',
     onSelect = () => {},
     onBack = () => {},
     onConfirm = () => {}

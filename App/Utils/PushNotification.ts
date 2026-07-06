@@ -110,6 +110,7 @@ async function getFcmToken(): Promise<string | null> {
     }
 }
 
+//Todo: Always FCM failed error on server side.
 async function registerTokenWithBackend(token: string): Promise<boolean> {
     try {
         const result = await authApi.registerFcmToken({

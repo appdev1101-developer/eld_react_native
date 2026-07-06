@@ -1,7 +1,5 @@
-import { GeoData } from '../../Utils/Geometris';
-
-const FALLBACK_LAT = 0;
-const FALLBACK_LNG = 0;
+import { DutyStatusLocation, EMPTY_DUTY_STATUS_LOCATION } from './types';
+import { parseCoordinates } from './parseCoordinates';
 
 export type DutyStatusCoordinates = {
     lat: number;
@@ -9,23 +7,34 @@ export type DutyStatusCoordinates = {
 };
 
 export function getDutyStatusCoordinates(
-    geoData?: GeoData | null
-): DutyStatusCoordinates {
-    const lat = geoData?.latitude;
-    const lng = geoData?.longitude;
+    location: DutyStatusLocation
+): DutyStatusCoordinates | null {
+    const coords = parseCoordinates(location.lat, location.lng);
+    if (!coords) {
+        return null;
+    }
+    return coords;
+}
 
-    if (
-        typeof lat === 'number' &&
-        typeof lng === 'number' &&
-        !Number.isNaN(lat) &&
-        !Number.isNaN(lng) &&
-        !(lat === 0 && lng === 0)
-    ) {
-        return {
-            lat: Number(lat.toFixed(6)),
-            lng: Number(lng.toFixed(6))
-        };
+export function isDutyStatusLocationValid(location: DutyStatusLocation): boolean {
+    return getDutyStatusCoordinates(location) !== null;
+}
+
+export function toDutyStatusLocation(
+    lat: number,
+    lng: number,
+    address: string | null,
+    source: DutyStatusLocation['source']
+): DutyStatusLocation {
+    const coords = parseCoordinates(lat, lng);
+    if (!coords) {
+        return EMPTY_DUTY_STATUS_LOCATION;
     }
 
-    return { lat: FALLBACK_LAT, lng: FALLBACK_LNG };
+    return {
+        lat: coords.lat,
+        lng: coords.lng,
+        address,
+        source
+    };
 }

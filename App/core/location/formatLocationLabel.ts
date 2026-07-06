@@ -1,13 +1,15 @@
-import { GeoData } from '../../Utils/Geometris';
+import { DutyStatusLocation } from './types';
+import { parseCoordinates } from './parseCoordinates';
 
-export function formatLocationLabel(geoData?: GeoData | null): string {
-    if (
-        geoData &&
-        typeof geoData.latitude === 'number' &&
-        typeof geoData.longitude === 'number' &&
-        !(geoData.latitude === 0 && geoData.longitude === 0)
-    ) {
-        return `${geoData.latitude.toFixed(5)}, ${geoData.longitude.toFixed(5)}`;
+export function formatLocationLabel(location: DutyStatusLocation): string {
+    if (location.address) {
+        return location.address;
     }
-    return 'Location unavailable — connect ELD or enable GPS';
+
+    const coords = parseCoordinates(location.lat, location.lng);
+    if (coords) {
+        return `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
+    }
+
+    return 'Location unavailable — enable GPS or connect ELD';
 }
