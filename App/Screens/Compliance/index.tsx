@@ -20,6 +20,7 @@ import moment from 'moment';
 import HOSChart from '../../Components/Compliance/HOSChart';
 import { useCompliance } from '../../core/hooks/useCompliance';
 import { HosLogDayRecord } from '../../core/cache/complianceCache';
+import { THEME, GRADIENT_HEADER } from '../../Constants/Theme';
 
 type HosDaySummary = { total_shift_time?: string };
 
@@ -74,7 +75,7 @@ const Compliance = () => {
             >
                 <ActivityIndicator
                     size={'large'}
-                    color={'#392969'}
+                    color={THEME.colors.primary}
                 />
             </View>
         );
@@ -85,7 +86,7 @@ const Compliance = () => {
             <AppStatusBar />
 
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <HomeHeader />
@@ -96,8 +97,8 @@ const Compliance = () => {
                             <RefreshControl
                                 refreshing={refreshing}
                                 onRefresh={refresh}
-                                colors={['#392969']}
-                                tintColor="#392969"
+                                colors={[THEME.colors.primary]}
+                                tintColor={THEME.colors.primary}
                             />
                         }
                     >
@@ -151,23 +152,8 @@ const Compliance = () => {
                             vehicleName={chartData.vehicle?.[0]?.name}
                         />
 
-                        <View
-                            style={{
-                                backgroundColor: '#D9D9D9',
-                                paddingHorizontal: moderateScale(15),
-                                paddingVertical: moderateScale(10),
-                                marginVertical: moderateScale(8)
-                            }}
-                        >
-                            <Text
-                                style={{
-                                    color: '#33404F',
-                                    fontFamily: FONTS.ProductSans.regular,
-                                    fontSize: moderateScale(18)
-                                }}
-                            >
-                                Last 7 days
-                            </Text>
+                        <View style={styles.sectionDivider}>
+                            <Text style={styles.sectionTitle}>Last 7 days</Text>
                         </View>
 
                         {hosData.map((item, index) => {
@@ -207,21 +193,34 @@ export default Compliance;
 
 const styles = StyleSheet.create({
     bodyCard: {
-        backgroundColor: '#fff',
-        paddingTop: moderateScale(20),
+        backgroundColor: THEME.colors.surface,
+        paddingTop: moderateScale(24),
         flex: 1,
         zIndex: 1,
-        borderTopRightRadius: moderateScale(40),
-        borderTopLeftRadius: moderateScale(40)
+        borderTopRightRadius: THEME.radius.sheet,
+        borderTopLeftRadius: THEME.radius.sheet
     },
     header: {
         height: moderateScale(35),
         paddingLeft: moderateScale(15)
     },
     headerText: {
-        color: '#33404F',
-        fontFamily: FONTS.ProductSans.regular,
+        color: THEME.colors.textPrimary,
+        fontFamily: FONTS.ProductSans.bold,
         fontSize: moderateScale(17),
-        marginLeft: moderateScale(15)
+        marginLeft: moderateScale(15),
+        letterSpacing: 0.2
+    },
+    sectionDivider: {
+        backgroundColor: THEME.colors.surfaceElevated,
+        paddingHorizontal: moderateScale(15),
+        paddingVertical: moderateScale(12),
+        marginVertical: moderateScale(8)
+    },
+    sectionTitle: {
+        color: THEME.colors.textPrimary,
+        fontFamily: FONTS.ProductSans.bold,
+        fontSize: moderateScale(17),
+        letterSpacing: 0.2
     }
 });

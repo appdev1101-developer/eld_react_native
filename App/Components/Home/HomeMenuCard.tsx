@@ -3,6 +3,7 @@ import React from 'react';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { Card, Icon, Text } from 'react-native-basic-elements';
 import { FONTS } from '../../Constants/Fonts';
+import { THEME } from '../../Constants/Theme';
 
 type ListItemProps = {
     title: string;
@@ -24,18 +25,12 @@ const HomeMenuCard: React.FC<Props> = ({
 }) => {
     return (
         <View style={styles.container}>
-            <View
-                style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                }}
-            >
+            <View style={styles.headerRow}>
                 <Text style={styles.title}>{title}</Text>
                 <Icon
                     name="arrowright"
                     type="AntDesign"
-                    color={'#14AE5C'}
+                    color={THEME.colors.success}
                     size={moderateScale(18)}
                     onPress={onRightIconPress}
                 />
@@ -52,24 +47,9 @@ const HomeMenuCard: React.FC<Props> = ({
                     </View>
 
                     {item.count != undefined ? (
-                        <View
-                            style={{
-                                backgroundColor: '#FA17401F',
-                                height: moderateScale(29),
-                                minWidth: moderateScale(29),
-                                paddingHorizontal: moderateScale(6),
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                borderRadius: moderateScale(5)
-                            }}
-                        >
+                        <View style={styles.badge}>
                             <Text
-                                style={{
-                                    fontFamily: FONTS.ProductSans.regular,
-                                    color: '#FA1740',
-                                    fontSize: moderateScale(15),
-                                    textAlign: 'center'
-                                }}
+                                style={styles.badgeText}
                                 numberOfLines={1}
                                 adjustsFontSizeToFit={true}
                                 minimumFontScale={0.8}
@@ -83,6 +63,7 @@ const HomeMenuCard: React.FC<Props> = ({
                         name="chevron-right"
                         type="Entypo"
                         size={moderateScale(22)}
+                        color={THEME.colors.textMuted}
                     />
                 </Card>
             ))}
@@ -96,27 +77,56 @@ export default HomeMenuCard;
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#EFEFEF',
+        backgroundColor: THEME.colors.surface,
         margin: moderateScale(10),
-        borderRadius: moderateScale(5),
-        paddingHorizontal: moderateScale(7),
-        paddingVertical: moderateScale(10)
+        borderRadius: THEME.radius.md,
+        paddingHorizontal: moderateScale(12),
+        paddingVertical: moderateScale(14),
+        borderWidth: 1,
+        borderColor: THEME.colors.borderLight,
+        ...THEME.shadow.card
+    },
+    headerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: moderateScale(4)
     },
     title: {
-        fontSize: moderateScale(16),
-        fontFamily: FONTS.ProductSans.regular,
-        textTransform: 'capitalize'
+        fontSize: moderateScale(17),
+        fontFamily: FONTS.ProductSans.bold,
+        color: THEME.colors.textPrimary,
+        textTransform: 'capitalize',
+        letterSpacing: 0.2
     },
     itemTitle: {
-        color: '#33404F',
+        color: THEME.colors.textPrimary,
         fontSize: moderateScale(13),
         fontFamily: FONTS.ProductSans.regular,
         textTransform: 'capitalize'
     },
     card: {
         flexDirection: 'row',
-        // justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: moderateScale(10)
+        marginTop: moderateScale(10),
+        backgroundColor: THEME.colors.surfaceMuted,
+        borderRadius: THEME.radius.sm,
+        paddingVertical: moderateScale(8),
+        paddingHorizontal: moderateScale(10)
+    },
+    badge: {
+        backgroundColor: THEME.colors.badgeMuted,
+        height: moderateScale(29),
+        minWidth: moderateScale(29),
+        paddingHorizontal: moderateScale(6),
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: THEME.radius.pill
+    },
+    badgeText: {
+        fontFamily: FONTS.ProductSans.bold,
+        color: THEME.colors.badge,
+        fontSize: moderateScale(14),
+        textAlign: 'center'
     }
 });

@@ -41,6 +41,7 @@ import { formatLocationLabel } from '../../core/location/formatLocationLabel';
 import { requireOnline } from '../../core/network/requireOnline';
 import { showError } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
+import { THEME, GRADIENT_HEADER } from '../../Constants/Theme';
 
 export type StatusDataType = {
     id: number;
@@ -212,7 +213,7 @@ const Home = () => {
             >
                 <ActivityIndicator
                     size={'large'}
-                    color={'#392969'}
+                    color={THEME.colors.primary}
                 />
             </View>
         );
@@ -223,7 +224,7 @@ const Home = () => {
             <AppStatusBar />
 
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <HomeHeader />
@@ -233,30 +234,14 @@ const Home = () => {
                         <RefreshControl
                             refreshing={refreshing}
                             onRefresh={refresh}
-                            colors={['#392969']}
-                            tintColor="#392969"
+                            colors={[THEME.colors.primary]}
+                            tintColor={THEME.colors.primary}
                         />
                     }
                 >
-                    <Text
-                        style={{
-                            color: '#FFFFFF',
-                            fontFamily: FONTS.ProductSans.regular,
-                            fontSize: moderateScale(25),
-                            marginHorizontal: moderateScale(18),
-                            marginTop: moderateScale(10)
-                        }}
-                    >
+                    <Text style={styles.greeting}>
                         Hi, {userData?.first_name} !{' '}
-                        <Text
-                            style={{
-                                color: '#60A5FA',
-                                fontFamily: FONTS.ProductSans.regular,
-                                fontSize: moderateScale(20)
-                            }}
-                        >
-                            Welcome Back
-                        </Text>
+                        <Text style={styles.greetingAccent}>Welcome Back</Text>
                     </Text>
 
                     <ArcProgressIndicator
@@ -279,22 +264,14 @@ const Home = () => {
                         <Icon
                             name="clock"
                             type="Feather"
-                            color={'#FFFFFF'}
+                            color={THEME.colors.textOnDark}
                         />
                         <Text style={styles.statusText}>
                             {showStatus ? 'Choose Your Status' : 'Hours of service (HOS)'}
                         </Text>
                         <View style={{ flex: 1 }} />
                         {!showStatus ? (
-                            <Text
-                                style={{
-                                    fontFamily: FONTS.ProductSans.regular,
-                                    color: '#00DDA3',
-                                    fontSize: moderateScale(10)
-                                }}
-                            >
-                                Today
-                            </Text>
+                            <Text style={styles.todayLabel}>Today</Text>
                         ) : null}
                     </View>
 
@@ -444,16 +421,7 @@ const Home = () => {
                 animationIn="fadeIn"
                 animationOut="fadeOut"
             >
-                <View
-                    style={{
-                        height: moderateScale(230),
-                        width: moderateScale(240),
-                        backgroundColor: '#FFFFFF',
-                        borderRadius: moderateScale(30),
-                        justifyContent: 'center',
-                        alignItems: 'center'
-                    }}
-                >
+                <View style={styles.verifyModal}>
                     {verifySuccess ? (
                         <LottieView
                             source={require('../../Assets/LottieJson/Success.json')}
@@ -476,13 +444,7 @@ const Home = () => {
                         />
                     )}
 
-                    <Text
-                        style={{
-                            fontFamily: FONTS.ProductSans.regular,
-                            fontSize: moderateScale(13),
-                            marginTop: moderateScale(10)
-                        }}
-                    >
+                    <Text style={styles.verifyModalText}>
                         {verifySuccess ? 'Success' : 'Verifying...'}
                     </Text>
                 </View>
@@ -494,6 +456,18 @@ const Home = () => {
 export default Home;
 
 const styles = StyleSheet.create({
+    greeting: {
+        color: THEME.colors.textOnDark,
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(25),
+        marginHorizontal: moderateScale(18),
+        marginTop: moderateScale(10)
+    },
+    greetingAccent: {
+        color: THEME.colors.textAccent,
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(20)
+    },
     statusTextContainer: {
         marginHorizontal: moderateScale(18) + 15,
         flexDirection: 'row',
@@ -502,18 +476,40 @@ const styles = StyleSheet.create({
     },
     statusText: {
         fontFamily: FONTS.ProductSans.regular,
-        color: '#ffffff',
+        color: THEME.colors.textOnDark,
         fontSize: moderateScale(15),
         marginLeft: moderateScale(8)
     },
+    todayLabel: {
+        fontFamily: FONTS.ProductSans.regular,
+        color: THEME.colors.successSoft,
+        fontSize: moderateScale(10),
+        textTransform: 'uppercase',
+        letterSpacing: 0.8
+    },
     bottomCard: {
-        backgroundColor: '#fff',
+        backgroundColor: THEME.colors.surface,
         paddingTop: moderateScale(110),
         top: -moderateScale(85),
         zIndex: 1,
-        borderTopRightRadius: moderateScale(40),
-        borderTopLeftRadius: moderateScale(40),
+        borderTopRightRadius: THEME.radius.sheet,
+        borderTopLeftRadius: THEME.radius.sheet,
         marginBottom: -moderateScale(85)
+    },
+    verifyModal: {
+        height: moderateScale(230),
+        width: moderateScale(240),
+        backgroundColor: THEME.colors.surface,
+        borderRadius: THEME.radius.lg,
+        justifyContent: 'center',
+        alignItems: 'center',
+        ...THEME.shadow.card
+    },
+    verifyModalText: {
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(13),
+        marginTop: moderateScale(10),
+        color: THEME.colors.textPrimary
     },
     textHeading: {
         fontFamily: FONTS.ProductSans.regular,

@@ -22,6 +22,7 @@ import NavigationService from '../../Services/Navigation';
 import { inspectionApi } from '../../core/api/services/inspectionApi';
 import { isLegacySuccess } from '../../core/api/types/common';
 import { useRoute } from '@react-navigation/native';
+import { GRADIENT_HEADER } from '../../Constants/Theme';
 
 const data = [
     {
@@ -107,7 +108,7 @@ const AddInspection: React.FC = () => {
             <AppStatusBar />
 
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <HomeHeader showBack />

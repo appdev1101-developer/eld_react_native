@@ -16,6 +16,7 @@ import { FONTS } from '../../Constants/Fonts';
 import NavigationService from '../../Services/Navigation';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { GROUP_INFO } from '../../Constants/MessageMockData';
+import { GRADIENT_HEADER } from '../../Constants/Theme';
 
 type GroupMediaParams = {
     GroupMedia: {
@@ -40,7 +41,7 @@ const GroupMedia = () => {
         <Container>
             <AppStatusBar />
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <View style={[styles.header, { marginTop: insets.top }]}>

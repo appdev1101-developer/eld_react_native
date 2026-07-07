@@ -16,6 +16,7 @@ import moment from 'moment';
 import { inspectionApi } from '../../core/api/services/inspectionApi';
 import { isLegacySuccess } from '../../core/api/types/common';
 import NavigationService from '../../Services/Navigation';
+import { GRADIENT_HEADER } from '../../Constants/Theme';
 
 const InspectionHistory = () => {
     const [inspections, setInspections] = useState<Array<any>>([]);
@@ -68,7 +69,7 @@ const InspectionHistory = () => {
             <AppStatusBar />
 
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <HomeHeader showBack />

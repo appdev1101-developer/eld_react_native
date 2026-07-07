@@ -1,10 +1,11 @@
-import { Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
+import { Image, ImageBackground, StyleSheet, View } from 'react-native';
 import React from 'react';
 import { AppButton, useTheme } from 'react-native-basic-elements';
 import AppStatusBar from '../../Components/AppStatusBar';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import NavigationService from '../../Services/Navigation';
+import { THEME } from '../../Constants/Theme';
 
 const Welcome = () => {
     const colors = useTheme();
@@ -18,35 +19,33 @@ const Welcome = () => {
 
             <Image
                 source={require('../../Assets/logo-long.png')}
-                style={{ marginBottom: 20, height: moderateScale(45), resizeMode: 'contain' }}
+                style={styles.logo}
             />
 
-            <AppButton
-                title="Login"
-                style={{ ...styles.btn, ...styles.loginBtn }}
-                textStyle={{
-                    color: '#FFFFFF',
-                    fontFamily: FONTS.ProductSans.regular,
-                    fontSize: moderateScale(12)
-                }}
-                onPress={() => NavigationService.navigate('SignIn')}
-            />
+            <View style={styles.buttonGroup}>
+                <AppButton
+                    title="Login"
+                    style={{ ...styles.btn, ...styles.loginBtn }}
+                    textStyle={styles.loginBtnText}
+                    onPress={() => NavigationService.navigate('SignIn')}
+                />
 
-            <AppButton
-                title="Request login from your Fleet Manager"
-                style={{ ...styles.btn, borderColor: colors.primaryFontColor }}
-                textStyle={{
-                    color: colors.primaryFontColor,
-                    fontFamily: FONTS.ProductSans.regular,
-                    fontSize: moderateScale(12)
-                }}
-            />
+                <AppButton
+                    title="Request login from your Fleet Manager"
+                    style={{ ...styles.btn, ...styles.secondaryBtn, borderColor: colors.primaryFontColor }}
+                    textStyle={{
+                        color: colors.primaryFontColor,
+                        fontFamily: FONTS.ProductSans.regular,
+                        fontSize: moderateScale(12)
+                    }}
+                />
+            </View>
 
             {/* <Text style={[styles.buttomText, { color: colors.primaryFontColor }]}>
                 Own a Trucking Fleet?{' '}
                 <Text
                     onPress={() => NavigationService.navigate('Register')}
-                    style={{ color: '#FF9A62' }}
+                    style={{ color: THEME.colors.accent }}
                 >
                     Register Now
                 </Text>
@@ -63,19 +62,37 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
         alignItems: 'center'
     },
+    logo: {
+        marginBottom: moderateScale(24),
+        height: moderateScale(45),
+        resizeMode: 'contain'
+    },
+    buttonGroup: {
+        width: '100%',
+        alignItems: 'center',
+        paddingBottom: moderateScale(40)
+    },
     btn: {
         width: '90%',
-        backgroundColor: '#fff',
+        backgroundColor: THEME.colors.surface,
         borderWidth: 1,
-        height: moderateScale(45),
-        marginBottom: moderateScale(45),
-        marginTop: moderateScale(10)
+        height: moderateScale(48),
+        borderRadius: THEME.radius.sm
     },
     loginBtn: {
-        marginBottom: moderateScale(10),
-        marginTop: moderateScale(45),
+        marginBottom: moderateScale(12),
+        marginTop: moderateScale(48),
         borderWidth: 0,
-        backgroundColor: '#00DDA3'
+        backgroundColor: THEME.colors.primary,
+        ...THEME.shadow.card
+    },
+    loginBtnText: {
+        color: THEME.colors.textOnDark,
+        fontFamily: FONTS.ProductSans.bold,
+        fontSize: moderateScale(14)
+    },
+    secondaryBtn: {
+        marginBottom: moderateScale(16)
     },
     buttomText: {
         marginBottom: 30,

@@ -9,6 +9,7 @@ import { FONTS } from '../../Constants/Fonts';
 import moment from 'moment';
 import { useRoute } from '@react-navigation/native';
 import { MAIN_BASE_URL } from '../../Utils/EnvVariables';
+import { GRADIENT_HEADER } from '../../Constants/Theme';
 
 const getInspectionImageUrl = (imageUrl?: string | null) => {
     if (!imageUrl) {
@@ -31,7 +32,7 @@ const InspectionHistoryDetail = () => {
             <AppStatusBar />
 
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <HomeHeader showBack />

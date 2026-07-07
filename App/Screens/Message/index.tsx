@@ -24,6 +24,7 @@ import { RootState } from '../../Redux/store';
 import { useFocusEffect } from '@react-navigation/native';
 import messageWebSocket from '../../Utils/MessageWebSocket';
 import { ChatPreviewItem } from '../../core/cache/messagesCache';
+import { THEME, GRADIENT_HEADER } from '../../Constants/Theme';
 
 const RecentChats = () => {
     const { userData } = useSelector((state: RootState) => state.User);
@@ -75,7 +76,7 @@ const RecentChats = () => {
         <Container>
             <AppStatusBar />
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <HomeHeader />
@@ -86,11 +87,11 @@ const RecentChats = () => {
                             name="search"
                             type="Feather"
                             size={moderateScale(16)}
-                            color="#A5ACB8"
+                            color={THEME.colors.textMuted}
                         />
                         <TextInput
                             placeholder="Search chats..."
-                            placeholderTextColor="#A5ACB8"
+                            placeholderTextColor={THEME.colors.textMuted}
                             value={search}
                             onChangeText={setSearch}
                             style={styles.searchInput}
@@ -148,7 +149,7 @@ const RecentChats = () => {
                         <View style={styles.loadingWrap}>
                             <ActivityIndicator
                                 size="large"
-                                color="#7051CF"
+                                color={THEME.colors.primaryLight}
                             />
                         </View>
                     ) : (
@@ -217,7 +218,7 @@ const RecentChats = () => {
                             name="plus"
                             type="Feather"
                             size={moderateScale(24)}
-                            color="#fff"
+                            color={THEME.colors.textOnDark}
                         />
                     </Pressable>
                 </View>
@@ -244,7 +245,7 @@ const RecentChats = () => {
                                 name="users"
                                 type="Feather"
                                 size={moderateScale(20)}
-                                color="#392969"
+                                color={THEME.colors.primary}
                             />
                             <Text style={styles.modalOptionText}>
                                 Create a Message group
@@ -262,7 +263,7 @@ const RecentChats = () => {
                                 name="message-circle"
                                 type="Feather"
                                 size={moderateScale(20)}
-                                color="#392969"
+                                color={THEME.colors.primary}
                             />
                             <Text style={styles.modalOptionText}>
                                 Start a Personal Chat
@@ -281,33 +282,35 @@ const styles = StyleSheet.create({
     searchRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginHorizontal: moderateScale(15),
-        marginBottom: moderateScale(10),
+        marginHorizontal: moderateScale(18),
+        marginBottom: moderateScale(12),
         gap: moderateScale(10)
     },
     searchBox: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.15)',
-        borderRadius: moderateScale(12),
-        paddingHorizontal: moderateScale(12),
-        height: moderateScale(40),
-        gap: moderateScale(8)
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        borderRadius: THEME.radius.sm,
+        paddingHorizontal: moderateScale(14),
+        height: moderateScale(42),
+        gap: moderateScale(8),
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.15)'
     },
     searchInput: {
         flex: 1,
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(14),
-        color: '#fff',
+        color: THEME.colors.textOnDark,
         padding: 0
     },
     bodyCard: {
-        backgroundColor: '#fff',
-        paddingTop: moderateScale(20),
+        backgroundColor: THEME.colors.surface,
+        paddingTop: moderateScale(24),
         flex: 1,
-        borderTopRightRadius: moderateScale(40),
-        borderTopLeftRadius: moderateScale(40)
+        borderTopRightRadius: THEME.radius.sheet,
+        borderTopLeftRadius: THEME.radius.sheet
     },
     loadingWrap: {
         flex: 1,
@@ -321,13 +324,13 @@ const styles = StyleSheet.create({
     emptyText: {
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(14),
-        color: '#A5ACB8'
+        color: THEME.colors.textMuted
     },
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         marginHorizontal: moderateScale(20),
-        gap: moderateScale(8)
+        gap: moderateScale(10)
     },
     sectionIcon: {
         height: moderateScale(22),
@@ -335,9 +338,10 @@ const styles = StyleSheet.create({
         resizeMode: 'contain'
     },
     sectionTitle: {
-        color: '#392969',
+        color: THEME.colors.primary,
         fontFamily: FONTS.ProductSans.bold,
-        fontSize: moderateScale(18)
+        fontSize: moderateScale(17),
+        letterSpacing: 0.2
     },
     lastTalkedList: {
         paddingHorizontal: moderateScale(15),
@@ -353,21 +357,22 @@ const styles = StyleSheet.create({
         width: moderateScale(52),
         borderRadius: moderateScale(26),
         borderWidth: 2,
-        borderColor: '#7051CF'
+        borderColor: THEME.colors.primaryLight
     },
     lastTalkedName: {
         marginTop: moderateScale(6),
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(11),
-        color: '#33404F',
+        color: THEME.colors.textPrimary,
         textAlign: 'center'
     },
     recentTitle: {
         marginHorizontal: moderateScale(20),
-        marginBottom: moderateScale(10),
+        marginBottom: moderateScale(12),
         fontFamily: FONTS.ProductSans.bold,
         fontSize: moderateScale(16),
-        color: '#33404F'
+        color: THEME.colors.textPrimary,
+        letterSpacing: 0.2
     },
     chatItem: {
         flexDirection: 'row',
@@ -393,13 +398,13 @@ const styles = StyleSheet.create({
         flex: 1,
         fontFamily: FONTS.ProductSans.bold,
         fontSize: moderateScale(15),
-        color: '#1A1F36',
+        color: THEME.colors.textPrimary,
         marginRight: moderateScale(8)
     },
     chatTime: {
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(12),
-        color: '#A5ACB8'
+        color: THEME.colors.textMuted
     },
     chatBottomRow: {
         flexDirection: 'row',
@@ -410,10 +415,10 @@ const styles = StyleSheet.create({
         flex: 1,
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(13),
-        color: '#697386'
+        color: THEME.colors.textSecondary
     },
     unreadBadge: {
-        backgroundColor: '#4299E1',
+        backgroundColor: THEME.colors.primary,
         borderRadius: moderateScale(10),
         minWidth: moderateScale(20),
         height: moderateScale(20),
@@ -424,11 +429,11 @@ const styles = StyleSheet.create({
     unreadText: {
         fontFamily: FONTS.ProductSans.bold,
         fontSize: moderateScale(11),
-        color: '#fff'
+        color: THEME.colors.textOnDark
     },
     separator: {
         height: 1,
-        backgroundColor: '#F0F2F5',
+        backgroundColor: THEME.colors.borderLight,
         marginHorizontal: moderateScale(20)
     },
     fab: {
@@ -438,30 +443,26 @@ const styles = StyleSheet.create({
         height: moderateScale(56),
         width: moderateScale(56),
         borderRadius: moderateScale(28),
-        backgroundColor: '#4299E1',
+        backgroundColor: THEME.colors.accent,
         justifyContent: 'center',
         alignItems: 'center',
-        elevation: 6,
-        shadowColor: '#4299E1',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6
+        ...THEME.shadow.fab
     },
     modal: {
         margin: 0,
         justifyContent: 'flex-end'
     },
     modalSheet: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: moderateScale(20),
-        borderTopRightRadius: moderateScale(20),
+        backgroundColor: THEME.colors.surface,
+        borderTopLeftRadius: THEME.radius.lg,
+        borderTopRightRadius: THEME.radius.lg,
         paddingBottom: moderateScale(30),
         paddingTop: moderateScale(10)
     },
     modalHandle: {
         width: moderateScale(40),
         height: moderateScale(4),
-        backgroundColor: '#E4E8EE',
+        backgroundColor: THEME.colors.border,
         borderRadius: moderateScale(2),
         alignSelf: 'center',
         marginBottom: moderateScale(15)
@@ -476,11 +477,11 @@ const styles = StyleSheet.create({
     modalOptionText: {
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(16),
-        color: '#1A1F36'
+        color: THEME.colors.textPrimary
     },
     modalDivider: {
         height: 1,
-        backgroundColor: '#F0F2F5',
+        backgroundColor: THEME.colors.borderLight,
         marginHorizontal: moderateScale(25)
     }
 });

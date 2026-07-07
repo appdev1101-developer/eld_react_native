@@ -1,15 +1,18 @@
+import { THEME } from './Theme';
+
 const COLORS = {
     light: {
-        primaryThemeColor: '#3d5638',
-        secondaryThemeColor: '#fff',
-        pageBackgroundColor: '#E5E5E5',
-        headerColor: '#fff',
-        bottomTabColor: '#fff',
-        primaryFontColor: '#1E232C',
-        secondaryFontColor: '#666E7A',
-        buttonColor: '#392969',
-        cardColor: '#FFFFFF'
+        primaryThemeColor: THEME.colors.primary,
+        secondaryThemeColor: THEME.colors.surface,
+        pageBackgroundColor: THEME.colors.surfaceMuted,
+        headerColor: THEME.colors.surface,
+        bottomTabColor: THEME.colors.primary,
+        primaryFontColor: THEME.colors.textPrimary,
+        secondaryFontColor: THEME.colors.textSecondary,
+        buttonColor: THEME.colors.primary,
+        cardColor: THEME.colors.surface,
+        accentColor: THEME.colors.accent
     }
 };
 
-export { COLORS };
+export { COLORS, THEME };

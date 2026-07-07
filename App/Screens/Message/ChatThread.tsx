@@ -24,6 +24,7 @@ import { ChatMessage, getAvatarSource } from '../../Constants/MessageMockData';
 import { ChatThreadParams, WsChatMessage } from '../../Model/Message';
 import messageWebSocket, { wsMessageToChatMessage } from '../../Utils/MessageWebSocket';
 import moment from 'moment';
+import { GRADIENT_HEADER } from '../../Constants/Theme';
 
 type ChatThreadRouteParams = {
     ChatThread: ChatThreadParams;
@@ -235,7 +236,7 @@ const ChatThread = () => {
         <Container>
             <AppStatusBar />
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <View style={[styles.header, { marginTop: insets.top }]}>

@@ -2,6 +2,7 @@
 import React, { Component } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { moderateScale } from '../Constants/PixelRatio';
+import { THEME } from '../Constants/Theme';
 import { Container, Icon } from 'react-native-basic-elements';
 import { Image, StyleSheet, View, Platform } from 'react-native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -35,24 +36,24 @@ const BottomTab = () => {
             screenOptions={({ route }) => ({
                 headerShown: false,
                 tabBarStyle: {
-                    backgroundColor: '#392969',
-                    height: moderateScale(50) + insets.bottom,
-                    paddingBottom: insets.bottom > 0 ? insets.bottom : moderateScale(8),
-                    paddingTop: moderateScale(8),
+                    backgroundColor: THEME.colors.primary,
+                    height: moderateScale(46) + insets.bottom,
+                    paddingBottom: insets.bottom > 0 ? insets.bottom : moderateScale(6),
+                    paddingTop: moderateScale(6),
                     position: 'absolute',
                     bottom: 0,
                     left: 0,
                     right: 0,
-                    elevation: 8,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: -2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
+                    elevation: 6,
+                    shadowColor: THEME.colors.primary,
+                    shadowOffset: { width: 0, height: -3 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 8,
                     borderTopWidth: 0,
                 },
                 tabBarShowLabel: false,
-                tabBarActiveTintColor: '#FF9A62',
-                tabBarInactiveTintColor: '#FFFFFF',
+                tabBarActiveTintColor: THEME.colors.accent,
+                tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.65)',
                 tabBarHideOnKeyboard: true,
             })}
         >
@@ -155,18 +156,18 @@ const styles = StyleSheet.create({
     tabIconContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: moderateScale(4),
-        minHeight: moderateScale(40),
-        gap: moderateScale(4)
+        paddingVertical: moderateScale(2),
+        minHeight: moderateScale(36),
+        gap: moderateScale(3)
     },
     icon: {
-        height: moderateScale(24),
-        width: moderateScale(24),
+        height: moderateScale(22),
+        width: moderateScale(22),
         resizeMode: 'contain'
     },
     focusIndicator: {
-        height: moderateScale(4),
-        width: moderateScale(4),
+        height: moderateScale(3),
+        width: moderateScale(16),
         borderRadius: moderateScale(2),
         marginTop: moderateScale(2)
     }

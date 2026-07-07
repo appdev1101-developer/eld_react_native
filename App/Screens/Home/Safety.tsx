@@ -10,6 +10,7 @@ import HomeMenuCard from '../../Components/Home/HomeMenuCard';
 import NavigationService from '../../Services/Navigation';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../Redux/store';
+import { GRADIENT_HEADER } from '../../Constants/Theme';
 
 const Safety = () => {
     const { configData } = useSelector((state: RootState) => state.User);
@@ -24,7 +25,7 @@ const Safety = () => {
             <AppStatusBar />
 
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <HomeHeader showBack />

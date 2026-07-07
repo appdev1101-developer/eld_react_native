@@ -7,6 +7,7 @@ import { AppTextInput, Card, Icon, Text } from 'react-native-basic-elements';
 import { FONTS } from '../../Constants/Fonts';
 import { showError } from '../../Utils/toast';
 import { required } from '../../Utils/validators';
+import { THEME } from '../../Constants/Theme';
 
 type Props = {
     data: Array<StatusDataType>;
@@ -48,32 +49,23 @@ const AllStatus: React.FC<Props> = ({
         <>
             {selectedStatus ? (
                 <View style={styles.container}>
-                    <Card style={styles.stylesDataCard}>
+                    <Card style={styles.confirmCard}>
                         <AppTextInput
                             leftIcon={{
                                 name: 'location-sharp',
                                 type: 'Ionicon',
-                                color: '#392969',
+                                color: THEME.colors.accent,
                                 size: 25
                             }}
-                            inputContainerStyle={{
-                                borderWidth: 0,
-                                backgroundColor: '#F4F4F4',
-                                height: moderateScale(35),
-                                borderRadius: moderateScale(20)
-                            }}
-                            inputStyle={{
-                                fontFamily: FONTS.ProductSans.regular,
-                                color: '#7D8083',
-                                fontSize: moderateScale(9.5)
-                            }}
+                            inputContainerStyle={styles.locationInput}
+                            inputStyle={styles.locationInputText}
                             value={locationLabel}
                             rightAction={
                                 <Icon
                                     name="edit-square"
                                     type="MaterialIcon"
                                     size={23}
-                                    color={'#FF5B00'}
+                                    color={THEME.colors.accent}
                                 />
                             }
                             editable={false}
@@ -81,19 +73,15 @@ const AllStatus: React.FC<Props> = ({
 
                         <AppTextInput
                             inputContainerStyle={{
-                                backgroundColor: '#E8EDF1',
+                                ...styles.remarksInput,
                                 borderWidth: remarksError ? 1 : 0,
-                                borderColor: remarksError ? '#EE4E34' : undefined,
-                                height: moderateScale(40),
-                                marginTop: moderateScale(5),
-                                paddingLeft: moderateScale(10)
+                                borderColor: remarksError
+                                    ? THEME.colors.error
+                                    : undefined
                             }}
                             placeholder="Add Remarks Here"
-                            inputStyle={{
-                                color: '#000000',
-                                fontFamily: FONTS.ProductSans.regular,
-                                fontSize: moderateScale(12)
-                            }}
+                            placeholderTextColor={THEME.colors.textMuted}
+                            inputStyle={styles.remarksInputText}
                             value={remarks}
                             onChangeText={(val) => {
                                 setRemarks(val);
@@ -103,25 +91,12 @@ const AllStatus: React.FC<Props> = ({
                             }}
                         />
                         {remarksError ? (
-                            <Text
-                                style={{
-                                    color: '#EE4E34',
-                                    fontFamily: FONTS.ProductSans.regular,
-                                    fontSize: moderateScale(9),
-                                    marginTop: moderateScale(4),
-                                    marginLeft: moderateScale(4)
-                                }}
-                            >
-                                {remarksError}
-                            </Text>
+                            <Text style={styles.errorText}>{remarksError}</Text>
                         ) : null}
                     </Card>
 
                     <HomeCard
-                        style={{
-                            shadowColor: '#5CFA75',
-                            elevation: 12
-                        }}
+                        style={styles.confirmActionCard}
                         onPress={handleConfirm}
                     >
                         <Image
@@ -191,10 +166,10 @@ const styles = StyleSheet.create({
         resizeMode: 'contain'
     },
     statusName: {
-        fontFamily: FONTS.ProductSans.regular,
+        fontFamily: FONTS.ProductSans.bold,
         textAlign: 'center',
-        fontSize: moderateScale(17),
-        color: '#000000',
+        fontSize: moderateScale(16),
+        color: THEME.colors.textPrimary,
         marginTop: moderateScale(5),
         textTransform: 'capitalize'
     },
@@ -202,11 +177,50 @@ const styles = StyleSheet.create({
         fontFamily: FONTS.ProductSans.regular,
         textAlign: 'center',
         fontSize: moderateScale(9),
-        color: '#8E9093',
+        color: THEME.colors.textSecondary,
         textTransform: 'capitalize'
     },
-    stylesDataCard: {
+    confirmCard: {
         width: '100%',
-        borderRadius: moderateScale(16)
+        borderRadius: THEME.radius.lg,
+        backgroundColor: THEME.colors.surface,
+        borderWidth: 1,
+        borderColor: THEME.colors.borderLight,
+        padding: moderateScale(12),
+        ...THEME.shadow.card
+    },
+    locationInput: {
+        borderWidth: 0,
+        backgroundColor: THEME.colors.surfaceElevated,
+        height: moderateScale(38),
+        borderRadius: THEME.radius.pill
+    },
+    locationInputText: {
+        fontFamily: FONTS.ProductSans.regular,
+        color: THEME.colors.textSecondary,
+        fontSize: moderateScale(10)
+    },
+    remarksInput: {
+        backgroundColor: THEME.colors.surfaceElevated,
+        height: moderateScale(42),
+        marginTop: moderateScale(8),
+        paddingLeft: moderateScale(12),
+        borderRadius: THEME.radius.sm
+    },
+    remarksInputText: {
+        color: THEME.colors.textPrimary,
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(12)
+    },
+    errorText: {
+        color: THEME.colors.error,
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(9),
+        marginTop: moderateScale(4),
+        marginLeft: moderateScale(4)
+    },
+    confirmActionCard: {
+        borderColor: THEME.colors.accent,
+        borderWidth: 1.5
     }
 });

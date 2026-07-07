@@ -170,6 +170,9 @@ export async function apiRequest<T>(
     mapData: (payload: Record<string, unknown>) => T,
     body?: unknown
 ): Promise<ApiResponse<T>> {
+    console.log("##### Method #####", method);
+    console.log("##### Endpoint #####", endpoint);
+    console.log("##### Body #####", body);
     const { httpStatus, raw } = await requestRaw(method, endpoint, body);
     return buildApiResponse(raw, httpStatus, mapData);
 }

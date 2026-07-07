@@ -5,7 +5,9 @@ import {
     FlatList,
     TouchableOpacity,
     ActivityIndicator,
-    Alert
+    Alert,
+    ScrollView,
+    Pressable
 } from 'react-native';
 import React, { useCallback, useState, useEffect } from 'react';
 import {
@@ -41,6 +43,7 @@ import {
     openDeviceLocationSettings
 } from '../../Utils/EldPermissions';
 import AppStatusBar from '../../Components/AppStatusBar';
+import { GRADIENT_HEADER, THEME } from '../../Constants/Theme';
 
 const ITEMS: Array<string> = [
     'Ensure the ELD MAC address is entered correctly.',
@@ -109,6 +112,45 @@ const ConnectELD = () => {
         await markEldOnboardingSkipped();
         goToDashboard();
     };
+
+    const handleConnectNow = useCallback(async () => {
+        const macCheck = validateMacAddress(macAddress);
+        if (!macCheck.valid) {
+            showError(macCheck.message);
+            return;
+        }
+
+        const normalizedMac = macAddress.trim().toUpperCase();
+
+        try {
+            setConnecting(true);
+            if (!(await requirePermissions())) {
+                return;
+            }
+
+            const started = await GeoDataBackgroundService.start(normalizedMac);
+            if (started) {
+                setMacAddress(normalizedMac);
+                Alert.alert('Success', 'Connected to ELD device successfully!', [
+                    { text: 'OK', onPress: goToDashboard }
+                ]);
+                return;
+            }
+
+            Alert.alert(
+                'Connection Failed',
+                'Could not start the ELD service. Check the MAC address, Bluetooth, GPS, and app permissions, then try again.'
+            );
+        } catch (error) {
+            console.error('Error connecting:', error);
+            Alert.alert(
+                'Connection Error',
+                'Error connecting to device. Please try again.'
+            );
+        } finally {
+            setConnecting(false);
+        }
+    }, [goToDashboard, macAddress]);
 
     const requirePermissions = async (): Promise<boolean> => {
         const status = await ensureEldPermissions();
@@ -181,6 +223,7 @@ const ConnectELD = () => {
     // Function to handle device selection from scan modal
     const selectDevice = async (device: BluetoothDevice) => {
         try {
+            setMacAddress(device.address);
             setConnecting(true);
             setConnectionError('');
 
@@ -278,112 +321,78 @@ const ConnectELD = () => {
             <AppStatusBar />
 
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <HomeHeader showBack={fromDrawer} />
 
-                <View style={styles.bodyContainer}>
+                <ScrollView
+                    style={styles.scrollView}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.titleRow}>
                         <Text style={styles.heading}>Connect ELD</Text>
-                        <Text style={styles.macAddressText}>
-                            {fromDrawer
-                                ? 'Enter the ELD MAC address to connect'
-                                : 'Connect your ELD to access the dashboard, or skip for now'}
-                        </Text>
-
-                        <Text
-                            style={[
-                                styles.itemText,
-                                {
-                                    marginTop: moderateScale(10)
-                                }
+                        <Pressable
+                            onPress={handleSkip}
+                            disabled={connecting}
+                            hitSlop={10}
+                            style={({ pressed }) => [
+                                styles.skipCornerButton,
+                                pressed && styles.skipCornerButtonPressed,
+                                connecting && styles.skipCornerButtonDisabled
                             ]}
                         >
-                            Please verify the following items:
+                            <Text style={styles.skipCornerText}>Skip</Text>
+                        </Pressable>
+                    </View>
+
+                    <Text style={styles.macAddressText}>
+                        {fromDrawer
+                            ? 'Enter the ELD MAC address to connect'
+                            : 'Connect your ELD to access the dashboard, or skip for now'}
+                    </Text>
+
+                    <Text style={styles.verifyLabel}>Please verify the following items:</Text>
+
+                    {ITEMS.map((item, index) => (
+                        <View style={styles.bulletRow} key={index}>
+                            <View style={styles.dot} />
+                            <Text style={styles.itemText}>{item}</Text>
+                        </View>
+                    ))}
+
+                    <Card style={styles.cardStyle}>
+                        <View style={styles.cardInstructionRow}>
+                            <Icon
+                                name="clock"
+                                type="Feather"
+                                size={moderateScale(20)}
+                                style={styles.cardInstructionIcon}
+                                color={THEME.colors.primary}
+                            />
+                            <Text style={styles.cardInstructionText}>
+                                Enter ELD MAC address listed on this device.
+                            </Text>
+                        </View>
+
+                        <AppTextInput
+                            placeholder="AA:BB:CC:DD:EE:FF"
+                            placeholderTextColor={THEME.colors.textMuted}
+                            inputContainerStyle={styles.macInputContainer}
+                            inputStyle={styles.macInput}
+                            value={macAddress}
+                            onChangeText={setMacAddress}
+                            autoCapitalize="characters"
+                        />
+
+                        <Text style={styles.macHint}>
+                            Format: AA:BB:CC:DD:EE:FF (colons or dashes)
                         </Text>
 
-                        {ITEMS.map((item, index) => {
-                            return (
-                                <View
-                                    style={{
-                                        flexDirection: 'row',
-                                        alignItems: 'center'
-                                    }}
-                                    key={index}
-                                >
-                                    <View style={styles.dot} />
-
-                                    <Text style={styles.itemText}>{item}</Text>
-                                </View>
-                            );
-                        })}
-
-                        <Card style={styles.cardStyle}>
-                            <View
-                                style={{
-                                    flexDirection: 'row',
-                                    marginHorizontal: moderateScale(17)
-                                }}
-                            >
-                                <Icon
-                                    name="clock"
-                                    type="Feather"
-                                    size={moderateScale(20)}
-                                    style={{
-                                        marginTop: moderateScale(5)
-                                    }}
-                                    color={'#392969'}
-                                />
-
-                                <Text
-                                    style={{
-                                        fontFamily: FONTS.ProductSans.regular,
-                                        fontSize: moderateScale(15),
-                                        marginLeft: moderateScale(10),
-                                        marginRight: moderateScale(20)
-                                    }}
-                                >
-                                    Enter ELD MAC address listed on this device.
-                                </Text>
-                            </View>
-
-                            <AppTextInput
-                                placeholder="ELD MAC Address"
-                                placeholderTextColor="#697D95"
-                                inputContainerStyle={{
-                                    backgroundColor: '#E8EDF1',
-                                    paddingHorizontal: moderateScale(10),
-                                    marginHorizontal: moderateScale(17),
-                                    marginTop: moderateScale(10)
-                                }}
-                                inputStyle={{
-                                    fontSize: moderateScale(12)
-                                }}
-                                value={macAddress}
-                                onChangeText={setMacAddress}
-                            />
-
-                            <TouchableOpacity
-                                style={styles.scanButton}
-                                onPress={() => {
-                                    setModalVisible(true);
-                                    scanForDevices();
-                                }}
-                            >
-                                <Icon
-                                    name="bluetooth-searching"
-                                    type="MaterialIcon"
-                                    size={moderateScale(18)}
-                                    color="#FFFFFF"
-                                />
-                                <Text style={styles.scanButtonText}>
-                                    Scan for devices
-                                </Text>
-                            </TouchableOpacity>
-                        </Card>
-
                         <AppButton
-                            title="Connect Now"
+                            title={connecting ? 'Connecting...' : 'Connect Now'}
                             buttonIcon={{
                                 position: 'right',
                                 name: 'chevron-right',
@@ -391,68 +400,46 @@ const ConnectELD = () => {
                                 color: '#FFFFFF'
                             }}
                             textStyle={styles.btnText}
-                            style={styles.btn}
-                            onPress={async () => {
-                                const macCheck = validateMacAddress(macAddress);
-                                if (!macCheck.valid) {
-                                    showError(macCheck.message);
-                                    return;
-                                }
-
-                                const normalizedMac = macAddress.trim().toUpperCase();
-
-                                try {
-                                    setConnecting(true);
-                                    if (!(await requirePermissions())) {
-                                        setConnecting(false);
-                                        return;
-                                    }
-                                    const started =
-                                        await GeoDataBackgroundService.start(
-                                            normalizedMac
-                                        );
-                                    if (started) {
-                                        setMacAddress(normalizedMac);
-                                        Alert.alert(
-                                            'Success',
-                                            'Connected to ELD device successfully!',
-                                            [{ text: 'OK', onPress: goToDashboard }]
-                                        );
-                                    } else {
-                                        Alert.alert(
-                                            'Connection Failed',
-                                            'Failed to connect to the device. Please check the MAC address and try again.'
-                                        );
-                                    }
-                                } catch (error) {
-                                    console.error('Error connecting:', error);
-                                    Alert.alert(
-                                        'Connection Error',
-                                        'Error connecting to device. Please try again.'
-                                    );
-                                } finally {
-                                    setConnecting(false);
-                                }
+                            style={{
+                                ...styles.connectButton,
+                                ...(!macAddress.trim() ? styles.connectButtonMuted : {})
                             }}
-                            disabled={connecting || !macAddress}
-                        />
-
-                        <AppButton
-                            title="Skip"
-                            textStyle={styles.btnText}
-                            style={{ ...styles.btn, ...styles.skipButton }}
-                            onPress={handleSkip}
+                            onPress={handleConnectNow}
                             disabled={connecting}
                         />
 
-                        {connecting && (
-                            <ActivityIndicator
-                                size="large"
+                        <View style={styles.orDividerRow}>
+                            <View style={styles.orLine} />
+                            <Text style={styles.orText}>OR</Text>
+                            <View style={styles.orLine} />
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.scanButton}
+                            onPress={() => {
+                                setModalVisible(true);
+                                scanForDevices();
+                            }}
+                            disabled={connecting}
+                        >
+                            <Icon
+                                name="bluetooth-searching"
+                                type="MaterialIcon"
+                                size={moderateScale(18)}
                                 color="#FFFFFF"
-                                style={styles.loadingIndicator}
                             />
-                        )}
-                </View>
+                            <Text style={styles.scanButtonText}>Scan for devices</Text>
+                        </TouchableOpacity>
+                    </Card>
+
+                    {connecting ? (
+                        <ActivityIndicator
+                            size="large"
+                            color="#FFFFFF"
+                            style={styles.loadingIndicator}
+                        />
+                    ) : null}
+                </ScrollView>
             </LinearGradient>
 
             {/* Bluetooth Devices Modal */}
@@ -546,26 +533,69 @@ const ConnectELD = () => {
 export default ConnectELD;
 
 const styles = StyleSheet.create({
-    bodyContainer: {
-        marginHorizontal: moderateScale(15),
-        marginTop: moderateScale(40)
+    scrollView: {
+        flex: 1
+    },
+    scrollContent: {
+        paddingHorizontal: moderateScale(15),
+        paddingTop: moderateScale(24),
+        paddingBottom: moderateScale(32)
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: moderateScale(8)
     },
     heading: {
+        flex: 1,
         fontSize: moderateScale(25),
         color: '#FFFFFF',
         fontFamily: FONTS.ProductSans.regular
     },
+    skipCornerButton: {
+        paddingHorizontal: moderateScale(12),
+        paddingVertical: moderateScale(6),
+        borderRadius: moderateScale(20),
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.65)',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)'
+    },
+    skipCornerButtonPressed: {
+        backgroundColor: 'rgba(255, 255, 255, 0.18)'
+    },
+    skipCornerButtonDisabled: {
+        opacity: 0.5
+    },
+    skipCornerText: {
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(12),
+        color: '#FFFFFF'
+    },
     macAddressText: {
-        fontSize: moderateScale(19),
+        fontSize: moderateScale(16),
         fontFamily: FONTS.ProductSans.regular,
         fontStyle: 'italic',
-        color: '#FF8461'
+        color: '#FF8461',
+        marginBottom: moderateScale(12)
+    },
+    verifyLabel: {
+        fontSize: moderateScale(14),
+        color: '#FFFFFF',
+        fontFamily: FONTS.ProductSans.regular,
+        marginBottom: moderateScale(6)
+    },
+    bulletRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: moderateScale(4)
     },
     itemText: {
         fontSize: moderateScale(14),
         color: '#FFFFFF',
         fontFamily: FONTS.ProductSans.regular,
-        lineHeight: moderateScale(18)
+        lineHeight: moderateScale(18),
+        flex: 1
     },
     dot: {
         height: moderateScale(4),
@@ -576,38 +606,91 @@ const styles = StyleSheet.create({
         marginRight: moderateScale(10)
     },
     cardStyle: {
-        marginVertical: moderateScale(23),
+        marginTop: moderateScale(20),
         marginHorizontal: moderateScale(6),
-        paddingTop: moderateScale(10),
-        paddingBottom: moderateScale(25),
+        paddingTop: moderateScale(14),
+        paddingBottom: moderateScale(20),
         borderRadius: moderateScale(17)
+    },
+    cardInstructionRow: {
+        flexDirection: 'row',
+        marginHorizontal: moderateScale(17)
+    },
+    cardInstructionIcon: {
+        marginTop: moderateScale(5)
+    },
+    cardInstructionText: {
+        flex: 1,
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(15),
+        marginLeft: moderateScale(10),
+        marginRight: moderateScale(12),
+        color: THEME.colors.textPrimary
+    },
+    macInputContainer: {
+        backgroundColor: THEME.colors.surfaceElevated,
+        paddingHorizontal: moderateScale(10),
+        marginHorizontal: moderateScale(17),
+        marginTop: moderateScale(10),
+        borderRadius: moderateScale(10),
+        borderWidth: 1,
+        borderColor: THEME.colors.border
+    },
+    macInput: {
+        fontSize: moderateScale(13),
+        fontFamily: FONTS.ProductSans.regular,
+        color: THEME.colors.textPrimary
+    },
+    macHint: {
+        marginHorizontal: moderateScale(17),
+        marginTop: moderateScale(6),
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(10),
+        color: THEME.colors.textMuted
     },
     btnText: {
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(12),
         color: '#FFFFFF'
     },
-    btn: {
-        alignSelf: 'center',
-        paddingHorizontal: moderateScale(18),
-        backgroundColor: '#4ECB71'
+    connectButton: {
+        alignSelf: 'stretch',
+        marginHorizontal: moderateScale(17),
+        marginTop: moderateScale(14),
+        backgroundColor: THEME.colors.success
     },
-    skipButton: {
-        backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: '#FFFFFF',
-        marginTop: moderateScale(16)
+    connectButtonMuted: {
+        opacity: 0.6
+    },
+    orDividerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: moderateScale(17),
+        marginTop: moderateScale(16),
+        marginBottom: moderateScale(4),
+        gap: moderateScale(10)
+    },
+    orLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: THEME.colors.border
+    },
+    orText: {
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(11),
+        color: THEME.colors.textMuted,
+        letterSpacing: 1
     },
     scanButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#7051CF',
-        paddingVertical: moderateScale(8),
+        backgroundColor: THEME.colors.primaryLight,
+        paddingVertical: moderateScale(10),
         paddingHorizontal: moderateScale(12),
-        borderRadius: moderateScale(8),
+        borderRadius: moderateScale(10),
         marginHorizontal: moderateScale(17),
-        marginTop: moderateScale(15)
+        marginTop: moderateScale(10)
     },
     scanButtonText: {
         color: '#FFFFFF',
@@ -618,7 +701,29 @@ const styles = StyleSheet.create({
     loadingIndicator: {
         marginTop: moderateScale(15)
     },
-    // Modal styles
+    deviceItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: moderateScale(15),
+        borderBottomWidth: 1,
+        borderBottomColor: '#E8EDF1'
+    },
+    deviceIcon: {
+        marginRight: moderateScale(15)
+    },
+    deviceInfo: {
+        flex: 1
+    },
+    deviceName: {
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(16),
+        color: '#392969'
+    },
+    deviceAddress: {
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(12),
+        color: '#697D95'
+    },
     modalContainer: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -647,29 +752,6 @@ const styles = StyleSheet.create({
     },
     deviceList: {
         maxHeight: '70%'
-    },
-    deviceItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: moderateScale(15),
-        borderBottomWidth: 1,
-        borderBottomColor: '#E8EDF1'
-    },
-    deviceIcon: {
-        marginRight: moderateScale(15)
-    },
-    deviceInfo: {
-        flex: 1
-    },
-    deviceName: {
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(16),
-        color: '#392969'
-    },
-    deviceAddress: {
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(12),
-        color: '#697D95'
     },
     scanningContainer: {
         alignItems: 'center',
@@ -708,5 +790,5 @@ const styles = StyleSheet.create({
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(14),
         color: '#FFFFFF'
-    }
+    },
 });

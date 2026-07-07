@@ -11,6 +11,7 @@ import Svg, { G, Path } from 'react-native-svg';
 import { AppButton, Text } from 'react-native-basic-elements';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
+import { THEME } from '../../Constants/Theme';
 
 type Props = {
     size?: number;
@@ -38,16 +39,13 @@ const ArcProgressIndicator: React.FC<Props> = ({
 }) => {
     const radius = size / 2;
 
-    // Create arc path
-    const createArcPath = (startAngle: number, endAngle: number, radius: number) => {
-        // const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1';
-        const x1 = radius + radius * Math.cos((Math.PI * startAngle) / 180);
-        const y1 = radius - radius * Math.sin((Math.PI * startAngle) / 180);
-        const x2 = radius + radius * Math.cos((Math.PI * endAngle) / 180);
-        const y2 = radius - radius * Math.sin((Math.PI * endAngle) / 180);
+    const createArcPath = (startAngle: number, endAngle: number, arcRadius: number) => {
+        const x1 = arcRadius + arcRadius * Math.cos((Math.PI * startAngle) / 180);
+        const y1 = arcRadius - arcRadius * Math.sin((Math.PI * startAngle) / 180);
+        const x2 = arcRadius + arcRadius * Math.cos((Math.PI * endAngle) / 180);
+        const y2 = arcRadius - arcRadius * Math.sin((Math.PI * endAngle) / 180);
 
-        const path = `M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2}`;
-        // console.log('path', path);
+        const path = `M ${x1} ${y1} A ${arcRadius} ${arcRadius} 0 0 1 ${x2} ${y2}`;
         return path;
     };
 
@@ -93,9 +91,6 @@ const ArcProgressIndicator: React.FC<Props> = ({
                 viewBox={`-${strokeWidth / 2 + 15} -${strokeWidth / 2 + 10} ${
                     size + 30
                 } ${size + 30}`}
-                // style={{
-                //     backgroundColor: 'yellow'
-                // }}
             >
                 <G>
                     <Path
@@ -136,48 +131,24 @@ const ArcProgressIndicator: React.FC<Props> = ({
             </Svg>
 
             <View
-                style={{
-                    height: radius,
-                    width: size,
-                    position: 'absolute',
-                    alignItems: 'center',
-                    justifyContent: 'flex-end',
-                    gap: moderateScale(10),
-                    zIndex: 99999
-                }}
+                style={[
+                    styles.overlay,
+                    { height: radius, width: size }
+                ]}
             >
-                <Text
-                    style={{
-                        fontFamily: FONTS.ProductSans.regular,
-                        fontSize: moderateScale(12),
-                        color: '#8996A6'
-                    }}
-                >
-                    Mode
-                </Text>
-                <Text
-                    style={{
-                        fontFamily: FONTS.ProductSans.regular,
-                        fontSize: moderateScale(22),
-                        color: '#FFFFFF'
-                    }}
-                >
-                    {modeName}
-                </Text>
+                <Text style={styles.modeLabel}>Mode</Text>
+                <Text style={styles.modeName}>{modeName}</Text>
                 <AppButton
                     title="Change Your Status"
                     style={{
                         width:
                             width -
                             (strokeWidth + moderateScale(20) + moderateScale(18)) * 2,
-                        backgroundColor: '#F3C522',
-                        marginBottom: moderateScale(2)
+                        backgroundColor: THEME.colors.accent,
+                        marginBottom: moderateScale(2),
+                        borderRadius: THEME.radius.pill
                     }}
-                    textStyle={{
-                        color: '#FFFFFF',
-                        fontFamily: FONTS.ProductSans.regular,
-                        fontSize: moderateScale(15)
-                    }}
+                    textStyle={styles.ctaText}
                     onPress={onPressStatusChange}
                 />
             </View>
@@ -187,4 +158,31 @@ const ArcProgressIndicator: React.FC<Props> = ({
 
 export default ArcProgressIndicator;
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+    overlay: {
+        position: 'absolute',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: moderateScale(8),
+        zIndex: 99999
+    },
+    modeLabel: {
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(11),
+        color: THEME.colors.textAccent,
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+        opacity: 0.85
+    },
+    modeName: {
+        fontFamily: FONTS.ProductSans.bold,
+        fontSize: moderateScale(24),
+        color: THEME.colors.textOnDark,
+        letterSpacing: 0.3
+    },
+    ctaText: {
+        color: THEME.colors.textOnDark,
+        fontFamily: FONTS.ProductSans.bold,
+        fontSize: moderateScale(14)
+    }
+});

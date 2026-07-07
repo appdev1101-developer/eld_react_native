@@ -15,6 +15,7 @@ import NavigationService from '../../Services/Navigation';
 import { Icon, useTheme } from 'react-native-basic-elements';
 import GeoDataBackgroundService from '../../Utils/GeoDataService';
 import { resetEldConnectionTracking } from '../../Utils/EldConnectionBeep';
+import { THEME } from '../../Constants/Theme';
 
 const DATA_STALE_MS = 15_000;
 const HOME_ROUTE_NAME = 'MainHome';
@@ -86,7 +87,7 @@ const HomeHeader: React.FC<Props> = ({
         }, [refreshConnectionStatus])
     );
 
-    const iconColor = theme === 'dark' ? '#fff' : colors.buttonColor;
+    const iconColor = theme === 'dark' ? THEME.colors.textOnDark : colors.buttonColor;
 
     return (
         <View style={[styles.headerContainer, { marginTop: insets.top }]}>
@@ -109,11 +110,13 @@ const HomeHeader: React.FC<Props> = ({
                     style={[
                         styles.bluetoothDot,
                         {
-                            backgroundColor: isBluetoothConnected ? '#22C55E' : '#EF4444',
+                            backgroundColor: isBluetoothConnected
+                                ? THEME.colors.success
+                                : THEME.colors.error,
                             borderColor:
                                 theme === 'dark'
-                                    ? 'rgba(255, 255, 255, 0.35)'
-                                    : 'rgba(0, 0, 0, 0.15)'
+                                    ? 'rgba(255, 255, 255, 0.4)'
+                                    : THEME.colors.border
                         }
                     ]}
                     accessibilityLabel={
@@ -123,24 +126,10 @@ const HomeHeader: React.FC<Props> = ({
                     }
                 />
             </View>
-            <View
-                style={{
-                    flex: 1,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    overflow: 'hidden'
-                }}
-            >
+            <View style={styles.logoContainer}>
                 <Image
-                    source={
-                        theme === 'dark'
-                            ? require('../../Assets/logo-long.png')
-                            : require('../../Assets/logo-long.png')
-                    }
-                    style={{
-                        height: moderateScale(25),
-                        resizeMode: 'contain'
-                    }}
+                    source={require('../../Assets/logo-long.png')}
+                    style={styles.logo}
                 />
             </View>
 
@@ -153,11 +142,7 @@ const HomeHeader: React.FC<Props> = ({
                     >
                         <Image
                             source={require('../../Assets/Icons/menu.png')}
-                            style={{
-                                width: moderateScale(20),
-                                resizeMode: 'contain',
-                                tintColor: iconColor
-                            }}
+                            style={[styles.menuIcon, { tintColor: iconColor }]}
                         />
                     </Pressable>
                 ) : null}
@@ -170,11 +155,11 @@ export default HomeHeader;
 
 const styles = StyleSheet.create({
     headerContainer: {
-        height: moderateScale(35),
-        // marginTop: moderateScale(5),
+        height: moderateScale(44),
         flexDirection: 'row',
         alignItems: 'center',
-        marginHorizontal: moderateScale(10)
+        marginHorizontal: moderateScale(12),
+        paddingVertical: moderateScale(4)
     },
     sideSlot: {
         flexDirection: 'row',
@@ -183,12 +168,26 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-start'
     },
     sideSlotWithBack: {
-        gap: moderateScale(6)
+        gap: moderateScale(8)
     },
     bluetoothDot: {
-        width: moderateScale(10),
-        height: moderateScale(10),
-        borderRadius: moderateScale(5),
-        borderWidth: 1
+        width: moderateScale(11),
+        height: moderateScale(11),
+        borderRadius: moderateScale(6),
+        borderWidth: 1.5
+    },
+    logoContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden'
+    },
+    logo: {
+        height: moderateScale(26),
+        resizeMode: 'contain'
+    },
+    menuIcon: {
+        width: moderateScale(20),
+        resizeMode: 'contain'
     }
 });

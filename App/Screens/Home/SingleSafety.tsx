@@ -11,6 +11,7 @@ import { safetyApi } from '../../core/api/services/safetyApi';
 import { isLegacySuccess } from '../../core/api/types/common';
 import { useRoute } from '@react-navigation/native';
 import moment from 'moment';
+import { GRADIENT_HEADER } from '../../Constants/Theme';
 
 const SingleSafety: React.FC = () => {
     const route = useRoute<any>();
@@ -57,7 +58,7 @@ const SingleSafety: React.FC = () => {
             <AppStatusBar />
 
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <HomeHeader showBack />

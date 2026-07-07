@@ -27,6 +27,7 @@ import SignatureScreen, { SignatureViewRef } from 'react-native-signature-canvas
 import { requireOnline } from '../../core/network/requireOnline';
 import { showError, showToast } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
+import { GRADIENT_HEADER } from '../../Constants/Theme';
 const ApprovalRequestLogs = () => {
     const route = useRoute<any>();
     const dispatch = useDispatch();
@@ -117,7 +118,7 @@ const ApprovalRequestLogs = () => {
             <AppStatusBar />
 
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <HomeHeader showBack />

@@ -29,6 +29,7 @@ import NavigationService from '../../Services/Navigation';
 import { requireOnline } from '../../core/network/requireOnline';
 import { showError, showToast } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
+import { GRADIENT_HEADER } from '../../Constants/Theme';
 
 const InspectionInfo: React.FC = () => {
     const route = useRoute<any>();
@@ -158,7 +159,7 @@ const InspectionInfo: React.FC = () => {
             <AppStatusBar />
 
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <HomeHeader showBack />

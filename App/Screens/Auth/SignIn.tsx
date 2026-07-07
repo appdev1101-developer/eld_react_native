@@ -16,6 +16,7 @@ import { requireOnline } from '../../core/network/requireOnline';
 import { showError, showToast } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { email, firstInvalid, minLength, required } from '../../Utils/validators';
+import { THEME } from '../../Constants/Theme';
 
 const SignIn = () => {
     const { login } = useSession();
@@ -225,14 +226,14 @@ const styles = StyleSheet.create({
     welcomeText: {
         fontFamily: FONTS.ProductSans.bold,
         fontSize: moderateScale(24),
-        color: '#1E232C',
+        color: THEME.colors.textPrimary,
         marginTop: moderateScale(20)
     },
     inputContainerStyle: {
-        backgroundColor: '#F7F8F9',
+        backgroundColor: THEME.colors.surfaceElevated,
         borderWidth: 1,
-        borderColor: '#E8ECF4',
-        borderRadius: moderateScale(8),
+        borderColor: THEME.colors.border,
+        borderRadius: THEME.radius.sm,
         height: moderateScale(45)
     },
     inputStyle: {
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
     forgotPassText: {
         fontFamily: FONTS.ProductSans.bold,
         fontSize: moderateScale(13),
-        color: '#6A707C',
+        color: THEME.colors.textSecondary,
         alignSelf: 'flex-end',
         marginTop: moderateScale(10)
     },
@@ -259,7 +260,7 @@ const styles = StyleSheet.create({
     },
     modalContent: {
         backgroundColor: '#FFFFFF',
-        borderRadius: moderateScale(12),
+        borderRadius: THEME.radius.md,
         padding: moderateScale(20),
         width: '100%',
         maxWidth: moderateScale(320)
@@ -267,14 +268,14 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontFamily: FONTS.ProductSans.bold,
         fontSize: moderateScale(18),
-        color: '#1E232C',
+        color: THEME.colors.textPrimary,
         marginBottom: moderateScale(10),
         textAlign: 'center'
     },
     modalMessage: {
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(14),
-        color: '#6A707C',
+        color: THEME.colors.textSecondary,
         textAlign: 'center',
         marginBottom: moderateScale(20),
         lineHeight: moderateScale(20)
@@ -285,16 +286,16 @@ const styles = StyleSheet.create({
     },
     cancelButton: {
         flex: 1,
-        backgroundColor: '#F7F8F9',
+        backgroundColor: THEME.colors.surfaceElevated,
         height: moderateScale(40)
     },
     cancelButtonText: {
-        color: '#6A707C',
+        color: THEME.colors.textSecondary,
         fontFamily: FONTS.ProductSans.bold
     },
     forceLoginButton: {
         flex: 1,
-        backgroundColor: '#392969',
+        backgroundColor: THEME.colors.primary,
         height: moderateScale(40)
     },
     forceLoginButtonText: {

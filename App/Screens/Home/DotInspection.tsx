@@ -20,6 +20,7 @@ import { requireOnline } from '../../core/network/requireOnline';
 import { showError, showToast } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { email } from '../../Utils/validators';
+import { GRADIENT_HEADER } from '../../Constants/Theme';
 
 const DotInspection = () => {
     const [dotInspectionModal, setDotInspectionModal] = useState<boolean>(false);
@@ -74,7 +75,7 @@ const DotInspection = () => {
             <AppStatusBar />
 
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <HomeHeader showBack />

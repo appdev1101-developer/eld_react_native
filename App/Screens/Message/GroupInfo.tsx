@@ -15,6 +15,7 @@ import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import NavigationService from '../../Services/Navigation';
 import { RouteProp, useRoute } from '@react-navigation/native';
+import { GRADIENT_HEADER } from '../../Constants/Theme';
 import {
     GROUP_INFO,
     GroupMember,
@@ -62,7 +63,7 @@ const GroupInfo = () => {
         <Container>
             <AppStatusBar />
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <View style={[styles.header, { marginTop: insets.top }]}>

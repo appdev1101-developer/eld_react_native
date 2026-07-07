@@ -18,6 +18,7 @@ import { FONTS } from '../../Constants/Fonts';
 import { useNotifications } from '../../core/hooks/useNotifications';
 import moment from 'moment';
 import Modal from 'react-native-modal';
+import { THEME, GRADIENT_HEADER } from '../../Constants/Theme';
 
 const Notification = () => {
     const [selectedTab, setSelectedTab] = useState<'ALL' | 'UNREAD' | 'READ'>('ALL');
@@ -74,7 +75,7 @@ const Notification = () => {
             >
                 <ActivityIndicator
                     size={'large'}
-                    color={'#392969'}
+                    color={THEME.colors.primary}
                 />
             </View>
         );
@@ -85,7 +86,7 @@ const Notification = () => {
             <AppStatusBar />
 
             <LinearGradient
-                colors={['#392969', '#7051CF']}
+                colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
                 <HomeHeader />
@@ -114,7 +115,7 @@ const Notification = () => {
                         >
                             <Text
                                 style={{
-                                    color: '#E4321B',
+                                    color: THEME.colors.accent,
                                     fontFamily: FONTS.ProductSans.regular,
                                     fontSize: moderateScale(12)
                                 }}
@@ -129,7 +130,7 @@ const Notification = () => {
                             style={[
                                 styles.tabItem,
                                 {
-                                    borderBottomColor: '#E4321B',
+                                    borderBottomColor: THEME.colors.accent,
                                     borderBottomWidth: selectedTab === 'ALL' ? 1 : 0
                                 }
                             ]}
@@ -137,7 +138,7 @@ const Notification = () => {
                         >
                             <Text
                                 style={{
-                                    color: selectedTab === 'ALL' ? '#E4321B' : '#697386',
+                                    color: selectedTab === 'ALL' ? THEME.colors.accent : THEME.colors.textSecondary,
                                     fontFamily: FONTS.ProductSans.regular,
                                     fontSize: moderateScale(16)
                                 }}
@@ -150,7 +151,7 @@ const Notification = () => {
                             style={[
                                 styles.tabItem,
                                 {
-                                    borderBottomColor: '#E4321B',
+                                    borderBottomColor: THEME.colors.accent,
                                     borderBottomWidth: selectedTab === 'UNREAD' ? 1 : 0
                                 }
                             ]}
@@ -159,7 +160,7 @@ const Notification = () => {
                             <Text
                                 style={{
                                     color:
-                                        selectedTab === 'UNREAD' ? '#E4321B' : '#697386',
+                                        selectedTab === 'UNREAD' ? THEME.colors.accent : THEME.colors.textSecondary,
                                     fontFamily: FONTS.ProductSans.regular,
                                     fontSize: moderateScale(16)
                                 }}
@@ -173,7 +174,7 @@ const Notification = () => {
                                         height: moderateScale(18),
                                         width: moderateScale(18),
                                         borderRadius: moderateScale(15),
-                                        backgroundColor: '#FA17401F',
+                                        backgroundColor: THEME.colors.badgeMuted,
                                         justifyContent: 'center',
                                         alignItems: 'center',
                                         position: 'absolute',
@@ -198,7 +199,7 @@ const Notification = () => {
                             style={[
                                 styles.tabItem,
                                 {
-                                    borderBottomColor: '#E4321B',
+                                    borderBottomColor: THEME.colors.accent,
                                     borderBottomWidth: selectedTab === 'READ' ? 1 : 0
                                 }
                             ]}
@@ -206,7 +207,7 @@ const Notification = () => {
                         >
                             <Text
                                 style={{
-                                    color: selectedTab === 'READ' ? '#E4321B' : '#697386',
+                                    color: selectedTab === 'READ' ? THEME.colors.accent : THEME.colors.textSecondary,
                                     fontFamily: FONTS.ProductSans.regular,
                                     fontSize: moderateScale(16)
                                 }}
@@ -483,12 +484,12 @@ export default Notification;
 
 const styles = StyleSheet.create({
     bodyCard: {
-        backgroundColor: '#fff',
+        backgroundColor: THEME.colors.surface,
         paddingTop: moderateScale(20),
         flex: 1,
         zIndex: 1,
-        borderTopRightRadius: moderateScale(40),
-        borderTopLeftRadius: moderateScale(40)
+        borderTopRightRadius: THEME.radius.sheet,
+        borderTopLeftRadius: THEME.radius.sheet
     },
     header: {
         height: moderateScale(40),
@@ -511,7 +512,7 @@ const styles = StyleSheet.create({
         alignItems: 'center'
     },
     headerText: {
-        color: '#33404F',
+        color: THEME.colors.textPrimary,
         fontFamily: FONTS.ProductSans.bold,
         fontSize: moderateScale(20)
     },
