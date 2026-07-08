@@ -6,8 +6,7 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     Alert,
-    ScrollView,
-    Pressable
+    ScrollView
 } from 'react-native';
 import React, { useCallback, useState, useEffect } from 'react';
 import {
@@ -16,14 +15,8 @@ import {
     useNavigation,
     useRoute
 } from '@react-navigation/native';
-import {
-    AppButton,
-    AppTextInput,
-    Card,
-    Container,
-    Icon,
-    Text
-} from 'react-native-basic-elements';
+import { Container, Icon, Text } from 'react-native-basic-elements';
+import { AppCard, Button, EditField } from '../../Components/UI';
 import LinearGradient from 'react-native-linear-gradient';
 import HomeHeader from '../../Components/Headers/HomeHeader';
 import { moderateScale } from '../../Constants/PixelRatio';
@@ -334,24 +327,20 @@ const ConnectELD = () => {
                 >
                     <View style={styles.titleRow}>
                         <Text style={styles.heading}>Connect ELD</Text>
-                        <Pressable
-                            onPress={handleSkip}
+                        <Button
+                            title="Skip"
+                            variant="outlineInverse"
+                            size="sm"
+                            inset={false}
                             disabled={connecting}
-                            hitSlop={10}
-                            style={({ pressed }) => [
-                                styles.skipCornerButton,
-                                pressed && styles.skipCornerButtonPressed,
-                                connecting && styles.skipCornerButtonDisabled
-                            ]}
-                        >
-                            <Text style={styles.skipCornerText}>Skip</Text>
-                        </Pressable>
+                            onPress={handleSkip}
+                        />
                     </View>
 
                     <Text style={styles.macAddressText}>
                         {fromDrawer
                             ? 'Enter the ELD MAC address to connect'
-                            : 'Connect your ELD to access the dashboard, or skip for now'}
+                            : 'Connect your ELD to access the dashboard.'}
                     </Text>
 
                     <Text style={styles.verifyLabel}>Please verify the following items:</Text>
@@ -363,7 +352,7 @@ const ConnectELD = () => {
                         </View>
                     ))}
 
-                    <Card style={styles.cardStyle}>
+                    <AppCard variant="elevated" padding="md" style={styles.cardStyle}>
                         <View style={styles.cardInstructionRow}>
                             <Icon
                                 name="clock"
@@ -377,35 +366,32 @@ const ConnectELD = () => {
                             </Text>
                         </View>
 
-                        <AppTextInput
+                        <EditField
                             placeholder="AA:BB:CC:DD:EE:FF"
-                            placeholderTextColor={THEME.colors.textMuted}
+                            containerStyle={styles.macFieldContainer}
                             inputContainerStyle={styles.macInputContainer}
-                            inputStyle={styles.macInput}
                             value={macAddress}
                             onChangeText={setMacAddress}
                             autoCapitalize="characters"
+                            hint="Format: AA:BB:CC:DD:EE:FF (colons or dashes)"
                         />
 
-                        <Text style={styles.macHint}>
-                            Format: AA:BB:CC:DD:EE:FF (colons or dashes)
-                        </Text>
-
-                        <AppButton
-                            title={connecting ? 'Connecting...' : 'Connect Now'}
+                        <Button
+                            title="Connect Now"
+                            loadingTitle="Connecting..."
+                            loading={connecting}
+                            variant="success"
+                            size="sm"
+                            fullWidth
+                            muted={!macAddress.trim()}
                             buttonIcon={{
                                 position: 'right',
                                 name: 'chevron-right',
                                 type: 'Feather',
                                 color: '#FFFFFF'
                             }}
-                            textStyle={styles.btnText}
-                            style={{
-                                ...styles.connectButton,
-                                ...(!macAddress.trim() ? styles.connectButtonMuted : {})
-                            }}
+                            style={styles.connectButton}
                             onPress={handleConnectNow}
-                            disabled={connecting}
                         />
 
                         <View style={styles.orDividerRow}>
@@ -414,23 +400,25 @@ const ConnectELD = () => {
                             <View style={styles.orLine} />
                         </View>
 
-                        <TouchableOpacity
+                        <Button
+                            title="Scan for devices"
+                            variant="secondary"
+                            fullWidth
+                            disabled={connecting}
+                            buttonIcon={{
+                                position: 'left',
+                                name: 'bluetooth-searching',
+                                type: 'MaterialIcon',
+                                color: '#FFFFFF',
+                                size: moderateScale(18)
+                            }}
                             style={styles.scanButton}
                             onPress={() => {
                                 setModalVisible(true);
                                 scanForDevices();
                             }}
-                            disabled={connecting}
-                        >
-                            <Icon
-                                name="bluetooth-searching"
-                                type="MaterialIcon"
-                                size={moderateScale(18)}
-                                color="#FFFFFF"
-                            />
-                            <Text style={styles.scanButtonText}>Scan for devices</Text>
-                        </TouchableOpacity>
-                    </Card>
+                        />
+                    </AppCard>
 
                     {connecting ? (
                         <ActivityIndicator
@@ -509,10 +497,10 @@ const ConnectELD = () => {
                         />
 
                         <View style={styles.modalFooter}>
-                            <AppButton
+                            <Button
                                 title={scanning ? 'Stop Scan' : 'Rescan'}
-                                style={styles.rescanButton}
-                                textStyle={styles.rescanButtonText}
+                                variant="secondary"
+                                fullWidth
                                 onPress={
                                     scanning
                                         ? async () => {
@@ -553,25 +541,7 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontFamily: FONTS.ProductSans.regular
     },
-    skipCornerButton: {
-        paddingHorizontal: moderateScale(12),
-        paddingVertical: moderateScale(6),
-        borderRadius: moderateScale(20),
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.65)',
-        backgroundColor: 'rgba(255, 255, 255, 0.08)'
-    },
-    skipCornerButtonPressed: {
-        backgroundColor: 'rgba(255, 255, 255, 0.18)'
-    },
-    skipCornerButtonDisabled: {
-        opacity: 0.5
-    },
-    skipCornerText: {
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(12),
-        color: '#FFFFFF'
-    },
+
     macAddressText: {
         fontSize: moderateScale(16),
         fontFamily: FONTS.ProductSans.regular,
@@ -627,40 +597,16 @@ const styles = StyleSheet.create({
         marginRight: moderateScale(12),
         color: THEME.colors.textPrimary
     },
+    macFieldContainer: {
+        marginHorizontal: moderateScale(17),
+        marginTop: moderateScale(6)
+    },
     macInputContainer: {
-        backgroundColor: THEME.colors.surfaceElevated,
-        paddingHorizontal: moderateScale(10),
-        marginHorizontal: moderateScale(17),
-        marginTop: moderateScale(10),
-        borderRadius: moderateScale(10),
-        borderWidth: 1,
-        borderColor: THEME.colors.border
-    },
-    macInput: {
-        fontSize: moderateScale(13),
-        fontFamily: FONTS.ProductSans.regular,
-        color: THEME.colors.textPrimary
-    },
-    macHint: {
-        marginHorizontal: moderateScale(17),
-        marginTop: moderateScale(6),
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(10),
-        color: THEME.colors.textMuted
-    },
-    btnText: {
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(12),
-        color: '#FFFFFF'
+        marginTop: 0
     },
     connectButton: {
-        alignSelf: 'stretch',
         marginHorizontal: moderateScale(17),
-        marginTop: moderateScale(14),
-        backgroundColor: THEME.colors.success
-    },
-    connectButtonMuted: {
-        opacity: 0.6
+        marginTop: moderateScale(14)
     },
     orDividerRow: {
         flexDirection: 'row',
@@ -682,21 +628,8 @@ const styles = StyleSheet.create({
         letterSpacing: 1
     },
     scanButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: THEME.colors.primaryLight,
-        paddingVertical: moderateScale(10),
-        paddingHorizontal: moderateScale(12),
-        borderRadius: moderateScale(10),
         marginHorizontal: moderateScale(17),
         marginTop: moderateScale(10)
-    },
-    scanButtonText: {
-        color: '#FFFFFF',
-        marginLeft: moderateScale(8),
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(14)
     },
     loadingIndicator: {
         marginTop: moderateScale(15)
@@ -783,12 +716,5 @@ const styles = StyleSheet.create({
     modalFooter: {
         marginTop: moderateScale(20)
     },
-    rescanButton: {
-        backgroundColor: '#7051CF'
-    },
-    rescanButtonText: {
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(14),
-        color: '#FFFFFF'
-    },
+
 });

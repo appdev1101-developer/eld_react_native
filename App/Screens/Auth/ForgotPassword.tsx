@@ -1,13 +1,8 @@
 import { StyleSheet, View } from 'react-native';
 import React, { useState } from 'react';
-import {
-    AppButton,
-    AppTextInput,
-    Container,
-    Text,
-    useTheme
-} from 'react-native-basic-elements';
+import { Container, Text } from 'react-native-basic-elements';
 import AuthHeader from '../../Components/Headers/AuthHeader';
+import { Button, EditField } from '../../Components/UI';
 import { FONTS } from '../../Constants/Fonts';
 import { moderateScale } from '../../Constants/PixelRatio';
 import NavigationService from '../../Services/Navigation';
@@ -17,9 +12,9 @@ import { requireOnline } from '../../core/network/requireOnline';
 import { showError, showToast } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { email } from '../../Utils/validators';
+import { THEME } from '../../Constants/Theme';
 
 const ForgotPassword = () => {
-    const colors = useTheme();
     const [emailValue, setEmailValue] = useState<string>('');
 
     const handleForgotPassword = () => {
@@ -62,39 +57,28 @@ const ForgotPassword = () => {
                 account.
             </Text>
 
-            <AppTextInput
-                mainContainerStyle={{
-                    marginTop: moderateScale(26),
-                    marginBottom: moderateScale(5)
-                }}
-                inputContainerStyle={styles.inputContainerStyle}
-                inputStyle={{ ...styles.inputStyle, color: colors.primaryFontColor }}
+            <EditField
+                containerStyle={styles.fieldContainer}
                 placeholder="Enter your email"
-                placeholderTextColor="#8391A1"
                 keyboardType="email-address"
+                autoCapitalize="none"
                 value={emailValue}
-                onChangeText={(val) => setEmailValue(val)}
+                onChangeText={setEmailValue}
             />
 
-            <AppButton
+            <Button
                 title="Send Code"
-                textStyle={styles.btnTextStyle}
-                style={{ height: moderateScale(40), marginVertical: moderateScale(15) }}
+                fullWidth
+                style={styles.submitButton}
                 onPress={handleForgotPassword}
             />
 
-            <View
-                style={{
-                    flex: 1,
-                    justifyContent: 'flex-end',
-                    alignItems: 'center'
-                }}
-            >
+            <View style={styles.bottomContainer}>
                 <Text style={styles.bottomText}>
                     Remember Password?{' '}
                     <Text
                         onPress={() => NavigationService.back()}
-                        style={{ color: '#35C2C1' }}
+                        style={styles.loginLink}
                     >
                         Login
                     </Text>
@@ -110,36 +94,38 @@ const styles = StyleSheet.create({
     titleText: {
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(20),
-        marginHorizontal: 22,
+        marginHorizontal: moderateScale(22),
         marginVertical: moderateScale(12),
-        lineHeight: moderateScale(35)
+        lineHeight: moderateScale(35),
+        color: THEME.colors.textPrimary
     },
     subTitleText: {
         fontFamily: FONTS.ProductSans.regular,
-        marginHorizontal: 22,
-        color: '#8391A1',
+        marginHorizontal: moderateScale(22),
+        color: THEME.colors.textSecondary,
         fontSize: moderateScale(14),
         lineHeight: moderateScale(23)
     },
-    inputContainerStyle: {
-        borderColor: '#E8ECF4',
-        marginHorizontal: 22,
-        height: moderateScale(45),
-        backgroundColor: '#F7F8F9'
+    fieldContainer: {
+        marginHorizontal: moderateScale(22),
+        marginTop: moderateScale(18)
     },
-    inputStyle: {
-        paddingLeft: 20,
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(11)
+    submitButton: {
+        marginHorizontal: moderateScale(22),
+        marginVertical: moderateScale(15)
     },
-    btnTextStyle: {
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(13),
-        color: '#fff'
+    bottomContainer: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        alignItems: 'center'
     },
     bottomText: {
         marginBottom: moderateScale(20),
         fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(12)
+        fontSize: moderateScale(12),
+        color: THEME.colors.textSecondary
+    },
+    loginLink: {
+        color: THEME.colors.successSoft
     }
 });

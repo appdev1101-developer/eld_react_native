@@ -1,13 +1,8 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import React, { useState } from 'react';
-import {
-    AppButton,
-    AppTextInput,
-    Container,
-    Text,
-    useTheme
-} from 'react-native-basic-elements';
+import { Container, Text } from 'react-native-basic-elements';
 import AuthHeader from '../../Components/Headers/AuthHeader';
+import { Button, EditField } from '../../Components/UI';
 import { FONTS } from '../../Constants/Fonts';
 import { moderateScale } from '../../Constants/PixelRatio';
 import NavigationService from '../../Services/Navigation';
@@ -18,12 +13,12 @@ import { requireOnline } from '../../core/network/requireOnline';
 import { showError, showToast } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { firstInvalid, minLength, passwordsMatch, required } from '../../Utils/validators';
+import { THEME } from '../../Constants/Theme';
 
 type CreatePasswordRouteProp = RouteProp<{ params: { email: string } }, 'params'>;
 
 const CreateNewPassword = ({ route }: { route: CreatePasswordRouteProp }) => {
     const { email } = route.params;
-    const colors = useTheme();
     const [password, setPassword] = useState<string>('');
     const [confirmPassword, setConfirmPassword] = useState<string>('');
 
@@ -69,42 +64,28 @@ const CreateNewPassword = ({ route }: { route: CreatePasswordRouteProp }) => {
                 Your new password must be unique from those previously used.
             </Text>
 
-            <AppTextInput
-                mainContainerStyle={{
-                    marginTop: moderateScale(25),
-                    marginBottom: moderateScale(5)
-                }}
-                inputContainerStyle={styles.inputContainerStyle}
-                inputStyle={{ ...styles.inputStyle, color: colors.primaryFontColor }}
+            <EditField
+                containerStyle={styles.fieldContainer}
                 placeholder="New Password"
-                placeholderTextColor="#8391A1"
+                showPasswordToggle
                 value={password}
-                onChangeText={(val) => setPassword(val)}
-                secureTextEntry
+                onChangeText={setPassword}
             />
 
-            <AppTextInput
-                mainContainerStyle={{
-                    marginTop: moderateScale(5),
-                    marginBottom: moderateScale(25)
-                }}
-                inputContainerStyle={styles.inputContainerStyle}
-                inputStyle={{ ...styles.inputStyle, color: colors.primaryFontColor }}
+            <EditField
+                containerStyle={styles.fieldContainer}
                 placeholder="Confirm Password"
-                placeholderTextColor="#8391A1"
+                showPasswordToggle
                 value={confirmPassword}
-                onChangeText={(val) => setConfirmPassword(val)}
-                secureTextEntry
+                onChangeText={setConfirmPassword}
             />
 
-            <AppButton
+            <Button
                 title="Reset Password"
-                textStyle={styles.btnTextStyle}
-                style={{
-                    height: 56,
-                    marginVertical: 20,
-                    backgroundColor: '#FF5B00'
-                }}
+                variant="accent"
+                size="lg"
+                fullWidth
+                style={styles.submitButton}
                 onPress={handleChangePassword}
             />
         </Container>
@@ -117,36 +98,24 @@ const styles = StyleSheet.create({
     titleText: {
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(20),
-        marginHorizontal: 22,
+        marginHorizontal: moderateScale(22),
         marginVertical: moderateScale(12),
-        lineHeight: moderateScale(35)
+        lineHeight: moderateScale(35),
+        color: THEME.colors.textPrimary
     },
     subTitleText: {
         fontFamily: FONTS.ProductSans.regular,
-        marginHorizontal: 22,
-        color: '#8391A1',
+        marginHorizontal: moderateScale(22),
+        color: THEME.colors.textSecondary,
         fontSize: moderateScale(13),
         lineHeight: moderateScale(22)
     },
-    inputContainerStyle: {
-        borderColor: '#E8ECF4',
-        marginHorizontal: 22,
-        height: moderateScale(45),
-        backgroundColor: '#F7F8F9'
+    fieldContainer: {
+        marginHorizontal: moderateScale(22),
+        marginTop: moderateScale(8)
     },
-    inputStyle: {
-        paddingLeft: 20,
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(11)
-    },
-    btnTextStyle: {
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(12),
-        color: '#fff'
-    },
-    bottomText: {
-        marginBottom: moderateScale(20),
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(12)
+    submitButton: {
+        marginHorizontal: moderateScale(22),
+        marginVertical: moderateScale(20)
     }
 });

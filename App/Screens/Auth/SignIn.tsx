@@ -1,13 +1,8 @@
-import { Image, StyleSheet, View, Modal } from 'react-native';
+import { StyleSheet, View, Modal } from 'react-native';
 import React, { useState } from 'react';
-import {
-    AppButton,
-    AppTextInput,
-    Container,
-    Text,
-    useTheme
-} from 'react-native-basic-elements';
+import { Container, Text } from 'react-native-basic-elements';
 import AuthHeader from '../../Components/Headers/AuthHeader';
+import { Button, EditField } from '../../Components/UI';
 import { FONTS } from '../../Constants/Fonts';
 import { moderateScale } from '../../Constants/PixelRatio';
 import NavigationService from '../../Services/Navigation';
@@ -20,11 +15,9 @@ import { THEME } from '../../Constants/Theme';
 
 const SignIn = () => {
     const { login } = useSession();
-    const colors = useTheme();
 
     const [emailValue, setEmailValue] = useState<string>('');
     const [password, setPassword] = useState<string>('');
-    const [showPassword, setShowPassword] = useState<boolean>(false);
     const [showConflictModal, setShowConflictModal] = useState<boolean>(false);
 
     const [loginLoading, setLoginLoading] = useState<boolean>(false);
@@ -35,7 +28,7 @@ const SignIn = () => {
             required(emailValue, 'Email'),
             email(emailValue),
             required(password, 'Password'),
-            minLength(password, 4, 'Password')
+            minLength(password, 6 , 'Password')
         );
 
         if (!result.valid) {
@@ -106,53 +99,19 @@ const SignIn = () => {
                 Welcome back!{'\n'}Glad to see you, Again!
             </Text>
 
-            <AppTextInput
-                mainContainerStyle={{
-                    marginTop: moderateScale(10),
-                    marginBottom: moderateScale(5)
-                }}
-                inputContainerStyle={styles.inputContainerStyle}
-                inputStyle={{
-                    ...styles.inputStyle,
-                    color: colors.primaryFontColor
-                }}
+            <EditField
                 placeholder="Enter your email"
-                placeholderTextColor="#8391A1"
                 keyboardType="email-address"
+                autoCapitalize="none"
                 value={emailValue}
-                onChangeText={(text) => setEmailValue(text)}
+                onChangeText={setEmailValue}
             />
 
-            <AppTextInput
-                mainContainerStyle={{
-                    marginTop: moderateScale(10),
-                    marginBottom: moderateScale(5)
-                }}
-                inputContainerStyle={styles.inputContainerStyle}
-                inputStyle={{
-                    ...styles.inputStyle,
-                    color: colors.primaryFontColor
-                }}
+            <EditField
                 placeholder="Enter your password"
-                placeholderTextColor="#8391A1"
-                secureTextEntry={!showPassword}
-                rightAction={
-                    <Image
-                        source={
-                            !showPassword
-                                ? require('../../Assets/Icons/eye.png')
-                                : require('../../Assets/Icons/eye-off.png')
-                        }
-                        style={{
-                            height: moderateScale(16),
-                            width: moderateScale(16)
-                        }}
-                        tintColor="#6A707C"
-                    />
-                }
-                onRightIconPress={() => setShowPassword((state) => !state)}
+                showPasswordToggle
                 value={password}
-                onChangeText={(text) => setPassword(text)}
+                onChangeText={setPassword}
             />
 
             <Text
@@ -162,24 +121,13 @@ const SignIn = () => {
                 Forgot Password?
             </Text>
 
-            <AppButton
-                title={loginLoading ? 'Logging in...' : 'Login'}
-                textStyle={styles.btnTextStyle}
-                style={{
-                    height: moderateScale(40),
-                    marginVertical: moderateScale(15)
-                }}
+            <Button
+                title="Login"
+                loadingTitle="Logging in..."
+                loading={loginLoading}
+                fullWidth
+                style={styles.primaryButton}
                 onPress={handleLogin}
-                disabled={loginLoading}
-                loader={
-                    loginLoading
-                        ? {
-                              position: 'right',
-                              size: 'small',
-                              color: '#FFFFFF'
-                          }
-                        : undefined
-                }
             />
 
             <Modal
@@ -197,20 +145,18 @@ const SignIn = () => {
                         </Text>
 
                         <View style={styles.modalButtonContainer}>
-                            <AppButton
+                            <Button
                                 title="Cancel"
-                                style={styles.cancelButton}
-                                textStyle={styles.cancelButtonText}
+                                variant="outline"
+                                style={styles.modalActionButton}
                                 onPress={() => setShowConflictModal(false)}
                             />
-                            <AppButton
-                                title={
-                                    forceLoginLoading ? 'Logging in...' : 'Force Login'
-                                }
-                                style={styles.forceLoginButton}
-                                textStyle={styles.forceLoginButtonText}
+                            <Button
+                                title="Force Login"
+                                loadingTitle="Logging in..."
+                                loading={forceLoginLoading}
+                                style={styles.modalActionButton}
                                 onPress={handleForceLogin}
-                                disabled={forceLoginLoading}
                             />
                         </View>
                     </View>
@@ -227,29 +173,19 @@ const styles = StyleSheet.create({
         fontFamily: FONTS.ProductSans.bold,
         fontSize: moderateScale(24),
         color: THEME.colors.textPrimary,
-        marginTop: moderateScale(20)
-    },
-    inputContainerStyle: {
-        backgroundColor: THEME.colors.surfaceElevated,
-        borderWidth: 1,
-        borderColor: THEME.colors.border,
-        borderRadius: THEME.radius.sm,
-        height: moderateScale(45)
-    },
-    inputStyle: {
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(14)
+        marginTop: moderateScale(20),
+        marginHorizontal: THEME.spacing.screen
     },
     forgotPassText: {
         fontFamily: FONTS.ProductSans.bold,
         fontSize: moderateScale(13),
         color: THEME.colors.textSecondary,
         alignSelf: 'flex-end',
-        marginTop: moderateScale(10)
+        marginTop: moderateScale(10),
+        marginRight: THEME.spacing.screen
     },
-    btnTextStyle: {
-        fontFamily: FONTS.ProductSans.bold,
-        fontSize: moderateScale(14)
+    primaryButton: {
+        marginVertical: moderateScale(15)
     },
     modalOverlay: {
         flex: 1,
@@ -259,7 +195,7 @@ const styles = StyleSheet.create({
         padding: moderateScale(20)
     },
     modalContent: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: THEME.colors.surface,
         borderRadius: THEME.radius.md,
         padding: moderateScale(20),
         width: '100%',
@@ -284,22 +220,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: moderateScale(10)
     },
-    cancelButton: {
-        flex: 1,
-        backgroundColor: THEME.colors.surfaceElevated,
-        height: moderateScale(40)
-    },
-    cancelButtonText: {
-        color: THEME.colors.textSecondary,
-        fontFamily: FONTS.ProductSans.bold
-    },
-    forceLoginButton: {
-        flex: 1,
-        backgroundColor: THEME.colors.primary,
-        height: moderateScale(40)
-    },
-    forceLoginButtonText: {
-        color: '#FFFFFF',
-        fontFamily: FONTS.ProductSans.bold
+    modalActionButton: {
+        flex: 1
     }
 });

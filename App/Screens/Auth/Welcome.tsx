@@ -1,14 +1,13 @@
 import { Image, ImageBackground, StyleSheet, View } from 'react-native';
 import React from 'react';
-import { AppButton, useTheme } from 'react-native-basic-elements';
 import AppStatusBar from '../../Components/AppStatusBar';
+import { Button } from '../../Components/UI';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import NavigationService from '../../Services/Navigation';
 import { THEME } from '../../Constants/Theme';
 
 const Welcome = () => {
-    const colors = useTheme();
     return (
         <ImageBackground
             source={require('../../Assets/LandingBackground.png')}
@@ -23,33 +22,25 @@ const Welcome = () => {
             />
 
             <View style={styles.buttonGroup}>
-                <AppButton
+                <Button
                     title="Login"
-                    style={{ ...styles.btn, ...styles.loginBtn }}
-                    textStyle={styles.loginBtnText}
+                    fullWidth
+                    inset={false}
+                    shadow
+                    style={styles.loginBtn}
                     onPress={() => NavigationService.navigate('SignIn')}
                 />
 
-                <AppButton
+                <Button
                     title="Request login from your Fleet Manager"
-                    style={{ ...styles.btn, ...styles.secondaryBtn, borderColor: colors.primaryFontColor }}
-                    textStyle={{
-                        color: colors.primaryFontColor,
-                        fontFamily: FONTS.ProductSans.regular,
-                        fontSize: moderateScale(12)
-                    }}
+                    variant="outline"
+                    size="sm"
+                    fullWidth
+                    inset={false}
+                    textStyle={styles.secondaryBtnText}
+                    style={styles.secondaryBtn}
                 />
             </View>
-
-            {/* <Text style={[styles.buttomText, { color: colors.primaryFontColor }]}>
-                Own a Trucking Fleet?{' '}
-                <Text
-                    onPress={() => NavigationService.navigate('Register')}
-                    style={{ color: THEME.colors.accent }}
-                >
-                    Register Now
-                </Text>
-            </Text> */}
         </ImageBackground>
     );
 };
@@ -69,34 +60,20 @@ const styles = StyleSheet.create({
     },
     buttonGroup: {
         width: '100%',
-        alignItems: 'center',
+        paddingHorizontal: THEME.spacing.screen,
+        alignItems: 'stretch',
         paddingBottom: moderateScale(40)
-    },
-    btn: {
-        width: '90%',
-        backgroundColor: THEME.colors.surface,
-        borderWidth: 1,
-        height: moderateScale(48),
-        borderRadius: THEME.radius.sm
     },
     loginBtn: {
         marginBottom: moderateScale(12),
-        marginTop: moderateScale(48),
-        borderWidth: 0,
-        backgroundColor: THEME.colors.primary,
-        ...THEME.shadow.card
-    },
-    loginBtnText: {
-        color: THEME.colors.textOnDark,
-        fontFamily: FONTS.ProductSans.bold,
-        fontSize: moderateScale(14)
+        marginTop: moderateScale(48)
     },
     secondaryBtn: {
         marginBottom: moderateScale(16)
     },
-    buttomText: {
-        marginBottom: 30,
+    secondaryBtnText: {
         fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(12)
+        fontSize: moderateScale(12),
+        color: THEME.colors.textPrimary
     }
 });

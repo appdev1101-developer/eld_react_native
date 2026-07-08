@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { moderateScale } from '../../Constants/PixelRatio';
 import HomeCard from './HomeCard';
 import { StatusDataType } from '../../Screens/Home';
-import { AppTextInput, Card, Icon, Text } from 'react-native-basic-elements';
+import { Icon, Text } from 'react-native-basic-elements';
+import { AppCard, EditField } from '../UI';
 import { FONTS } from '../../Constants/Fonts';
 import { showError } from '../../Utils/toast';
 import { required } from '../../Utils/validators';
@@ -49,8 +50,8 @@ const AllStatus: React.FC<Props> = ({
         <>
             {selectedStatus ? (
                 <View style={styles.container}>
-                    <Card style={styles.confirmCard}>
-                        <AppTextInput
+                    <AppCard variant="flat" padding="md" style={styles.confirmCard}>
+                        <EditField
                             leftIcon={{
                                 name: 'location-sharp',
                                 type: 'Ionicon',
@@ -71,16 +72,10 @@ const AllStatus: React.FC<Props> = ({
                             editable={false}
                         />
 
-                        <AppTextInput
-                            inputContainerStyle={{
-                                ...styles.remarksInput,
-                                borderWidth: remarksError ? 1 : 0,
-                                borderColor: remarksError
-                                    ? THEME.colors.error
-                                    : undefined
-                            }}
+                        <EditField
                             placeholder="Add Remarks Here"
-                            placeholderTextColor={THEME.colors.textMuted}
+                            error={remarksError}
+                            inputContainerStyle={styles.remarksInput}
                             inputStyle={styles.remarksInputText}
                             value={remarks}
                             onChangeText={(val) => {
@@ -90,10 +85,7 @@ const AllStatus: React.FC<Props> = ({
                                 }
                             }}
                         />
-                        {remarksError ? (
-                            <Text style={styles.errorText}>{remarksError}</Text>
-                        ) : null}
-                    </Card>
+                    </AppCard>
 
                     <HomeCard
                         style={styles.confirmActionCard}

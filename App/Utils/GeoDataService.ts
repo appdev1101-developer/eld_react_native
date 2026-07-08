@@ -37,9 +37,12 @@ const GeoDataBackgroundService = {
         if (!allGranted) return false;
 
         const token: string = (await getToken()) ?? '';
-
+        const eldDataUrl=getEldApiUrl();
         await Storage.set(STORAGE_KEY_DEVICE, deviceAddress);
-        return NativeGeoDataService.startService(getEldApiUrl(), token, deviceAddress);
+        // console.log(">>>> Token >>>> "+token);
+        // console.log(">>>> ELD Data Url >>>> "+eldDataUrl);
+        // console.log(">>>> Bluetooth Device >>>> "+deviceAddress);
+        return NativeGeoDataService.startService(eldDataUrl, token, deviceAddress);
     },
 
     /** Stop the background service and clear the saved device address. */
