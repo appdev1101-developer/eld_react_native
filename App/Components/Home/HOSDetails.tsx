@@ -34,12 +34,12 @@ const HOSDetails: React.FC<Props> = ({ driveTime, shiftTime, cycleTime }) => {
             <HOSCard
                 time={driveTime}
                 label="Drive"
-                subtitle="11-Hour Driving Limit"
+                subtitle="11 hours Driving Limit"
             />
             <HOSCard
                 time={shiftTime}
                 label="Shift"
-                subtitle="14-hours on Duty Limit"
+                subtitle="14 hours on Duty Limit"
             />
             <HOSCard
                 time={cycleTime}
@@ -56,14 +56,14 @@ const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        marginHorizontal: moderateScale(18) + 15,
+        marginHorizontal: moderateScale(18),
         justifyContent: 'space-between',
         marginTop: moderateScale(15),
         zIndex: 2
     },
     numeral: {
         fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(32),
+        fontSize: moderateScale(30),
         color: THEME.colors.textPrimary,
         textAlign: 'center',
         letterSpacing: -0.5

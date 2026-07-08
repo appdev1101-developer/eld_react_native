@@ -28,7 +28,7 @@ export default HomeCard;
 const styles = StyleSheet.create({
     cardStyle: {
         height: moderateScale(130),
-        width: '31%',
+        width: '32%',
         borderRadius: THEME.radius.lg,
         alignItems: 'center',
         paddingTop: moderateScale(20)

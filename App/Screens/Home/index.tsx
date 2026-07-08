@@ -181,25 +181,39 @@ const Home = () => {
             showError('Location unavailable. Enable GPS or connect your ELD device.');
             return;
         }
+        //ToDo: Commented this code for testing the dashboard status UI
+        // dashboardApi
+        //     .changeDutyStatusLegacy(data.id, coords.lat, coords.lng, remarks)
+        //     .then((result) => {
+        //         if (isLegacySuccess(result)) 
+        //         {
+                    
+        //             setVerifySuccess(true);
+        //             setTimeout(() => {
+        //                 refreshHos();
+        //                 setSelectedStatus(undefined);
+        //                 setShowStatus(false);
+        //                 setShowVerifyModal(false);
+        //                 setVerifySuccess(false);
+        //             }, 1500);
+        //         }
+        //     })
+        //     .catch((error) => {
+        //         setShowVerifyModal(false);
+        //         showError(getApiErrorMessage(error, 'Failed to change status'));
+        //     });
 
-        dashboardApi
-            .changeDutyStatusLegacy(data.id, coords.lat, coords.lng, remarks)
-            .then((result) => {
-                if (isLegacySuccess(result)) {
-                    setVerifySuccess(true);
-                    setTimeout(() => {
-                        refreshHos();
-                        setSelectedStatus(undefined);
-                        setShowStatus(false);
-                        setShowVerifyModal(false);
-                        setVerifySuccess(false);
-                    }, 1500);
-                }
-            })
-            .catch((error) => {
-                setShowVerifyModal(false);
-                showError(getApiErrorMessage(error, 'Failed to change status'));
-            });
+        setVerifySuccess(true);
+        setTimeout(() => {
+            refreshHos();
+            //ToDo: Commented this code for testing the status UI
+            //setSelectedStatus(undefined);
+            console.log("selected Status: "+selectedStatus?.name)
+            setSelectedStatus(selectedStatus);
+            setShowStatus(false);
+            setShowVerifyModal(false);
+            setVerifySuccess(false);
+        }, 1500);
     };
 
     if (loading) {
