@@ -1,9 +1,5 @@
 import {
     ActivityIndicator,
-    ColorValue,
-    Dimensions,
-    Image,
-    ImageSourcePropType,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -14,12 +10,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Container, Icon, Text } from 'react-native-basic-elements';
 import AppStatusBar from '../../Components/AppStatusBar';
 import { moderateScale } from '../../Constants/PixelRatio';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
 import { FONTS } from '../../Constants/Fonts';
-import ArcProgressIndicator from '../../Components/UI/ArcProgressIndicator';
+import StatusHero from '../../Components/Home/StatusHero';
 import HOSDetails from '../../Components/Home/HOSDetails';
-import AllStatus from '../../Components/Home/AllStatus';
+import StatusChangeSheet from '../../Components/Home/StatusChangeSheet';
+import {
+    findDutyStatus,
+    StatusDataType
+} from '../../Constants/dutyStatus';
 import Modal from 'react-native-modal';
 import LottieView from 'lottie-react-native';
 import HomeHeader from '../../Components/Headers/HomeHeader';
@@ -33,86 +33,20 @@ import {
 } from '../../core/location/getDutyStatusLocation';
 import { useDutyStatusLocation } from '../../core/hooks/useDutyStatusLocation';
 import HomeMenuCard from '../../Components/Home/HomeMenuCard';
+import { DutyStatusIcon } from '../../Components/UI';
 import NavigationService from '../../Services/Navigation';
 import GeoDataBackgroundService from '../../Utils/GeoDataService';
 import { getUnreadMessageCount } from '../../core/cache/messagesCache';
 import { prefetchNotifications } from '../../core/hooks/useNotifications';
 import { formatLocationLabel } from '../../core/location/formatLocationLabel';
 import { requireOnline } from '../../core/network/requireOnline';
-import { showError } from '../../Utils/toast';
+import { showError, showSuccess } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { THEME, GRADIENT_HEADER } from '../../Constants/Theme';
+import { setDashboardHos } from '../../Redux/reducer/Dashboard';
 
-export type StatusDataType = {
-    id: number;
-    icon: ImageSourcePropType;
-    name: string;
-    description?: string;
-    overlayColor?: ColorValue;
-    arcColors?: [ColorValue, ColorValue, ColorValue];
-    selectedArc?: 1 | 2;
-    apiStatus:
-        | 'Off duty'
-        | 'Sleeping Berth'
-        | 'Driving'
-        | 'ON duty'
-        | 'Personal Conveyance'
-        | 'Yard moves';
-};
+export type { StatusDataType };
 
-const AllStatusData: Array<StatusDataType> = [
-    {
-        id: 3,
-        icon: require('../../Assets/Icons/drive.png'),
-        name: 'Drive',
-        // description: '11-Hour Driving Limit',
-        overlayColor: '#72f575',
-        selectedArc: 1,
-        apiStatus: 'Driving'
-    },
-    {
-        id: 6,
-        icon: require('../../Assets/Icons/YardMove.png'),
-        name: 'Yard Move',
-        // description: 'Moving Nearby',
-        overlayColor: '#eaf5a3',
-        selectedArc: 2,
-        apiStatus: 'Yard moves'
-    },
-    {
-        id: 5,
-        icon: require('../../Assets/Icons/PersonalUse.png'),
-        name: 'Personal use',
-        arcColors: ['#6c746e', '#acada5', '#494b4f'],
-        apiStatus: 'Personal Conveyance'
-    },
-    {
-        id: 4,
-        icon: require('../../Assets/Icons/Break.png'),
-        name: 'ON Duty',
-        // description: 'Rest please!',
-        arcColors: ['#f3c646', '#f5a841', '#b19359'],
-        apiStatus: 'ON duty'
-    },
-    {
-        id: 2,
-        icon: require('../../Assets/Icons/Sleeper.png'),
-        name: 'Sleeper',
-        // description: 'Zzz!',
-        arcColors: ['#aeaeae', '#e6e4e1', '#818181'],
-        apiStatus: 'Sleeping Berth'
-    },
-    {
-        id: 1,
-        icon: require('../../Assets/Icons/OffDuty.png'),
-        name: 'Off duty',
-        // description: 'for Personal Work',
-        arcColors: ['#ee4e34', '#f17c3a', '#ed393e'],
-        apiStatus: 'Off duty'
-    }
-];
-
-const { width } = Dimensions.get('screen');
 const Home = () => {
     const { userData } = useSelector((state: RootState) => state.User);
     const {
@@ -127,25 +61,37 @@ const Home = () => {
         hos
     } = useDashboard();
 
-    const [showStatus, setShowStatus] = useState<boolean>(false);
-    const [selectedStatus, setSelectedStatus] = useState<StatusDataType | undefined>(
-        undefined
-    );
+    const [statusSheetVisible, setStatusSheetVisible] = useState(false);
     const [showVerifyModal, setShowVerifyModal] = useState<boolean>(false);
     const [verifySuccess, setVerifySuccess] = useState<boolean>(false);
+    const [heroStatus, setHeroStatus] = useState<StatusDataType | undefined>();
+    const [pendingStatus, setPendingStatus] = useState<StatusDataType | undefined>();
 
     const [unreadMessageCount, setUnreadMessageCount] = useState(0);
     const { location: dutyStatusLocation, getFreshCoordinates } = useDutyStatusLocation({
-        enabled: showStatus
+        enabled: statusSheetVisible
     });
     const goToMessages = () => NavigationService.navigate('Messages');
 
     const isFirstFocus = useRef(true);
 
     const currentStatus = useMemo(
-        () => AllStatusData.find((item) => item.apiStatus === hos?.latestLog),
+        () =>  findDutyStatus(hos?.latestLog),
         [hos?.latestLog]
     );
+    //__DEV__ ? findDutyStatus("Yard moves") : 
+
+    const displayStatus = heroStatus ?? currentStatus;
+    useEffect(() => {
+        if (
+            heroStatus &&
+            currentStatus?.apiStatus === heroStatus.apiStatus
+        ) {
+            setHeroStatus(undefined);
+        }
+        
+    }, [currentStatus?.apiStatus, heroStatus]);
+
 
     useFocusEffect(
         useCallback(() => {
@@ -162,15 +108,24 @@ const Home = () => {
         GeoDataBackgroundService.restoreIfNeeded().catch(() => {});
     }, []);
 
+    const handleStatusSheetConfirm = (status: StatusDataType, remarks: string) => {
+        setPendingStatus(status);
+        setShowVerifyModal(true);
+        setVerifySuccess(false);
+        changeStatus(status, remarks);
+    };
+
     const changeStatus = async (data: StatusDataType, remarks: string) => {
         if (!requireOnline()) {
             setShowVerifyModal(false);
+            setPendingStatus(undefined);
             return;
         }
 
         const freshLocation = await getFreshCoordinates();
         if (!isDutyStatusLocationValid(freshLocation)) {
             setShowVerifyModal(false);
+            setPendingStatus(undefined);
             showError('Location unavailable. Enable GPS or connect your ELD device.');
             return;
         }
@@ -178,42 +133,41 @@ const Home = () => {
         const coords = getDutyStatusCoordinates(freshLocation);
         if (!coords) {
             setShowVerifyModal(false);
+            setPendingStatus(undefined);
             showError('Location unavailable. Enable GPS or connect your ELD device.');
             return;
         }
-        //ToDo: Commented this code for testing the dashboard status UI
-        // dashboardApi
-        //     .changeDutyStatusLegacy(data.id, coords.lat, coords.lng, remarks)
-        //     .then((result) => {
-        //         if (isLegacySuccess(result)) 
-        //         {
-                    
-        //             setVerifySuccess(true);
-        //             setTimeout(() => {
-        //                 refreshHos();
-        //                 setSelectedStatus(undefined);
-        //                 setShowStatus(false);
-        //                 setShowVerifyModal(false);
-        //                 setVerifySuccess(false);
-        //             }, 1500);
-        //         }
-        //     })
-        //     .catch((error) => {
-        //         setShowVerifyModal(false);
-        //         showError(getApiErrorMessage(error, 'Failed to change status'));
-        //     });
 
-        setVerifySuccess(true);
-        setTimeout(() => {
-            refreshHos();
-            //ToDo: Commented this code for testing the status UI
-            //setSelectedStatus(undefined);
-            console.log("selected Status: "+selectedStatus?.name)
-            setSelectedStatus(selectedStatus);
-            setShowStatus(false);
+        try {
+            const result = await dashboardApi.changeDutyStatusLegacy(
+                data.id,
+                coords.lat,
+                coords.lng,
+                remarks
+            );
+
+            if (isLegacySuccess(result)) {
+                setVerifySuccess(true);
+                showSuccess(`You are now ${data.name}`);
+
+                setTimeout(() => {
+                    setHeroStatus(data);
+                    refreshHos();
+                    setShowVerifyModal(false);
+                    setVerifySuccess(false);
+                    setPendingStatus(undefined);
+                }, 1200);
+                return;
+            }
+
             setShowVerifyModal(false);
-            setVerifySuccess(false);
-        }, 1500);
+            setPendingStatus(undefined);
+            showError(result.message ?? 'Failed to change status');
+        } catch (error: unknown) {
+            setShowVerifyModal(false);
+            setPendingStatus(undefined);
+            showError(getApiErrorMessage(error, 'Failed to change status'));
+        }
     };
 
     if (loading) {
@@ -258,20 +212,13 @@ const Home = () => {
                         <Text style={styles.greetingAccent}>Welcome Back</Text>
                     </Text>
 
-                    <ArcProgressIndicator
+                    <StatusHero
                         strokeWidth={moderateScale(45)}
-                        colors={
-                            currentStatus?.arcColors ?? ['#bae6fc', '#60a5f8', '#1d4ed8']
-                        }
-                        size={width - moderateScale(18) * 2}
                         containerStyle={{
                             marginTop: moderateScale(25)
                         }}
-                        selectedArc={currentStatus?.selectedArc ?? 0}
-                        overlayColor={currentStatus?.overlayColor ?? '#72f575'}
-                        selectedArcColor="#1d4ed8"
-                        onPressStatusChange={() => setShowStatus((state) => !state)}
-                        modeName={currentStatus?.name ?? 'No Shift'}
+                        status={displayStatus}
+                        onPressStatusChange={() => setStatusSheetVisible(true)}
                     />
 
                     <View style={styles.statusTextContainer}>
@@ -281,35 +228,28 @@ const Home = () => {
                             color={THEME.colors.textOnDark}
                         />
                         <Text style={styles.statusText}>
-                            {showStatus ? 'Choose Your Status' : 'Hours of service (HOS)'}
+                            Hours of service (HOS)
                         </Text>
                         <View style={{ flex: 1 }} />
-                        {!showStatus ? (
-                            <Text style={styles.todayLabel}>Today</Text>
-                        ) : null}
+                        <Text style={styles.todayLabel}>Today</Text>
                     </View>
 
-                    {showStatus ? (
-                        <AllStatus
-                            selectedStatus={selectedStatus}
-                            locationLabel={formatLocationLabel(dutyStatusLocation)}
-                            data={AllStatusData}
-                            onSelect={setSelectedStatus}
-                            onBack={() => setSelectedStatus(undefined)}
-                            onConfirm={(val, remarks) => {
-                                setShowVerifyModal(true);
-                                changeStatus(val, remarks);
-                            }}
-                        />
-                    ) : (
-                        <HOSDetails
-                            driveTime={hosTimes.driveTime}
-                            shiftTime={hosTimes.shiftTime}
-                            cycleTime={hosTimes.cycleTime}
-                        />
-                    )}
+                    <HOSDetails
+                        driveTime={hosTimes.driveTime}
+                        shiftTime={hosTimes.shiftTime}
+                        cycleTime={hosTimes.cycleTime}
+                        currentDutyStatus={displayStatus?.apiStatus ?? hos?.latestLog}
+                        loading={loading || refreshing}
+                    />
 
-                    <View style={styles.bottomCard}>
+                    <View
+                        style={styles.bottomCardOverlap}
+                        pointerEvents="none"
+                    />
+                    <View
+                        style={styles.bottomCard}
+                        pointerEvents="box-none"
+                    >
                         <HomeMenuCard
                             title="Compliance"
                             listItems={[
@@ -426,40 +366,57 @@ const Home = () => {
                 </ScrollView>
             </LinearGradient>
 
+            <StatusChangeSheet
+                visible={statusSheetVisible}
+                currentStatus={displayStatus}
+                locationLabel={formatLocationLabel(dutyStatusLocation)}
+                onClose={() => setStatusSheetVisible(false)}
+                onConfirm={handleStatusSheetConfirm}
+            />
+
             <Modal
                 isVisible={showVerifyModal}
-                style={{
-                    marginHorizontal: 0,
-                    alignItems: 'center'
-                }}
+                style={styles.verifyModalWrapper}
                 animationIn="fadeIn"
                 animationOut="fadeOut"
             >
                 <View style={styles.verifyModal}>
+                    {verifySuccess && pendingStatus ? (
+                        <View style={styles.verifyStatusIconWrap}>
+                            <DutyStatusIcon
+                                name={pendingStatus.icon}
+                                color={pendingStatus.themeColor}
+                                size={moderateScale(36)}
+                                strokeWidth={2.2}
+                            />
+                        </View>
+                    ) : null}
+
                     {verifySuccess ? (
                         <LottieView
                             source={require('../../Assets/LottieJson/Success.json')}
-                            style={{
-                                height: moderateScale(60),
-                                width: moderateScale(60)
-                            }}
+                            style={styles.verifyLottie}
                             autoPlay={true}
                             loop={false}
                         />
                     ) : (
                         <LottieView
                             source={require('../../Assets/LottieJson/Loading.json')}
-                            style={{
-                                height: moderateScale(60),
-                                width: moderateScale(60)
-                            }}
+                            style={styles.verifyLottie}
                             autoPlay={true}
                             loop={true}
                         />
                     )}
 
+                    <Text style={styles.verifyModalTitle}>
+                        {verifySuccess
+                            ? `Now ${pendingStatus?.name ?? 'Updated'}`
+                            : 'Updating status...'}
+                    </Text>
                     <Text style={styles.verifyModalText}>
-                        {verifySuccess ? 'Success' : 'Verifying...'}
+                        {verifySuccess
+                            ? 'Your duty status has been saved.'
+                            : 'Please wait while we confirm your change.'}
                     </Text>
                 </View>
             </Modal>
@@ -501,33 +458,58 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 0.8
     },
+    bottomCardOverlap: {
+        height: moderateScale(25),
+        marginTop: -moderateScale(85),
+        marginBottom: -moderateScale(25)
+    },
     bottomCard: {
         backgroundColor: THEME.colors.surface,
-        paddingTop: moderateScale(110),
-        top: -moderateScale(85),
+        paddingTop: moderateScale(85),
         zIndex: 1,
         borderTopRightRadius: THEME.radius.sheet,
         borderTopLeftRadius: THEME.radius.sheet,
-        marginBottom: -moderateScale(85)
+        marginBottom: -moderateScale(60)
+    },
+    verifyModalWrapper: {
+        marginHorizontal: 0,
+        alignItems: 'center'
     },
     verifyModal: {
-        height: moderateScale(230),
-        width: moderateScale(240),
+        minHeight: moderateScale(230),
+        width: moderateScale(260),
         backgroundColor: THEME.colors.surface,
         borderRadius: THEME.radius.lg,
         justifyContent: 'center',
         alignItems: 'center',
+        paddingHorizontal: moderateScale(20),
+        paddingVertical: moderateScale(24),
         ...THEME.shadow.card
+    },
+    verifyStatusIconWrap: {
+        height: moderateScale(40),
+        width: moderateScale(40),
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: moderateScale(8)
+    },
+    verifyLottie: {
+        height: moderateScale(60),
+        width: moderateScale(60)
+    },
+    verifyModalTitle: {
+        fontFamily: FONTS.ProductSans.bold,
+        fontSize: moderateScale(16),
+        marginTop: moderateScale(10),
+        color: THEME.colors.textPrimary,
+        textAlign: 'center'
     },
     verifyModalText: {
         fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(13),
-        marginTop: moderateScale(10),
-        color: THEME.colors.textPrimary
-    },
-    textHeading: {
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(18),
-        marginHorizontal: moderateScale(18) + 15
+        fontSize: moderateScale(12),
+        marginTop: moderateScale(6),
+        color: THEME.colors.textSecondary,
+        textAlign: 'center',
+        lineHeight: moderateScale(18)
     }
 });
