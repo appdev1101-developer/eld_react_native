@@ -117,9 +117,9 @@ async function requestRaw(
                 return;
             }
             clearTimeout(timeoutId);
-
+            console.log("<<<<< Response >>>> "+xhr.responseText);
             const parsed = parseJsonSafe(xhr.responseText);
-
+            
             if (xhr.status === 200 || xhr.status === 409) {
                 resolve({
                     httpStatus: xhr.status,

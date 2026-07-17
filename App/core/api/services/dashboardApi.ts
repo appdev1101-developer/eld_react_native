@@ -49,24 +49,42 @@ export const dashboardApi = {
         };
     },
 
-    changeDutyStatus: (
-        id: number,
-        lat: number,
-        lng: number,
-        remark: string
+    // changeDutyStatus: (
+    //     id: number,
+    //     lat: number,
+    //     lng: number,
+    //     remark: string
+    // ) =>
+    //     apiGet<Record<string, never>>(
+    //         API.dashboard.changeDutyStatus(),
+    //         mapEmptyData
+    //     ),
+
+    changeDutyStatus: (payload: {
+        // id: string,
+        // lat: string,
+        // lng: string,
+        // remark: string
+        shift_id: string,
+        lat: string,
+        long: string,
+        text: string
+    }
+        
     ) =>
-        apiGet<Record<string, never>>(
-            API.dashboard.changeDutyStatus(id, lat, lng, remark),
-            mapEmptyData
+        apiPost<Record<string, never>>(
+            API.dashboard.changeDutyStatus(),
+            mapEmptyData, 
+            payload
         ),
 
     changeDutyStatusLegacy: async (
-        id: number,
-        lat: number,
-        lng: number,
-        remark: string
+        shift_id: string,
+        lat: string,
+        long: string,
+        text: string
     ): Promise<LegacyApiPayload> => {
-        const response = await dashboardApi.changeDutyStatus(id, lat, lng, remark);
+        const response = await dashboardApi.changeDutyStatus({shift_id, lat, long, text});
         return toLegacyPayload(response);
     },
 

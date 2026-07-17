@@ -94,11 +94,13 @@ export function useDashboard() {
             }
 
             try {
-                const [unsignedLogsRes, dashboardData, configData, approvalData] =
+                //approvalData
+                const [unsignedLogsRes, dashboardData, configData ] =
                     await Promise.all([
                         dashboardApi.getUnsignedLogs(),
                         dashboardApi.getData(),
-                        dashboardApi.getConfig(),
+                        //ToDo: Commented beacuse it is used for localization
+                        //dashboardApi.getConfig(),
                         dashboardApi.getApprovalRequests()
                     ]);
 
@@ -133,14 +135,15 @@ export function useDashboard() {
                     dispatch(setConfigData(configData.data));
                 }
 
-                if (isSuccess(approvalData)) {
-                    approvals = approvalData.data;
-                }
+                // if (isSuccess(approvalData)) {
+                //     approvals = approvalData.data;
+                // }
 
                 setHomeCache({
                     userInfo: nextUserInfo,
                     hos: nextHos,
-                    config: nextConfig,
+                    //config: nextConfig,
+                    config: null,
                     unsignedLogCount,
                     unsignedLogs: unsignedLogsList,
                     approvals

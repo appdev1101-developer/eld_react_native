@@ -8,9 +8,11 @@ import {
     isLoginConflict,
     isLoginSuccess,
     LoginLegacyResult,
+    parseLogSessionId,
     parseLoginUser
 } from '../session/loginHelpers';
 import SessionManager from '../session/SessionManager';
+import { getIsOnline } from '../network/networkMonitor';
 import type { AppDispatch } from '../../Redux/store';
 
 export type LoginAttemptResult =
@@ -19,6 +21,18 @@ export type LoginAttemptResult =
     | { success: false; message: string };
 
 export async function performLogout(dispatch: AppDispatch): Promise<void> {
+    const logSessionId = await SessionManager.getLogSessionId();
+
+    if (logSessionId && getIsOnline()) {
+        try {
+            await authApi.logoutLegacy(logSessionId);
+        } catch (error) {
+            if (__DEV__) {
+                console.warn('Logout API failed; clearing local session anyway.', error);
+            }
+        }
+    }
+
     await SessionManager.endSession();
     dispatch(logout());
 }
@@ -43,7 +57,11 @@ export function useSession() {
                 };
             }
 
-            await SessionManager.startSession(user, token);
+            await SessionManager.startSession(
+                user,
+                token,
+                parseLogSessionId(result)
+            );
 
             return {
                 success: true,

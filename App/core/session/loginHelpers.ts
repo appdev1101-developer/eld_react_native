@@ -6,8 +6,17 @@ export type LoginLegacyResult = LegacyApiPayload & {
     user_info?: UserDataType;
     user_id?: number;
     master_id?: number;
+    log_session_id?: string | number;
     success?: boolean;
 };
+
+export function parseLogSessionId(result: LoginLegacyResult): string | null {
+    const logSessionId = result.log_session_id;
+    if (logSessionId === undefined || logSessionId === null || logSessionId === '') {
+        return null;
+    }
+    return String(logSessionId);
+}
 
 export function isLoginConflict(result: LoginLegacyResult): boolean {
     return (

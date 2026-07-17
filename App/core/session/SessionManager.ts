@@ -13,8 +13,10 @@ import { clearEldOnboardingSkipped } from './eldOnboarding';
 import {
     clearSessionStorage,
     getAccount,
+    getLogSessionId,
     getToken,
     setAccount,
+    setLogSessionId,
     setToken
 } from './sessionStorage';
 
@@ -44,10 +46,17 @@ async function teardownSession(): Promise<void> {
     }
 }
 
-async function startSession(user: UserDataType, token: string): Promise<void> {
+async function startSession(
+    user: UserDataType,
+    token: string,
+    logSessionId?: string | null
+): Promise<void> {
     await clearEldOnboardingSkipped();
     await setToken(token);
     await setAccount(user);
+    if (logSessionId) {
+        await setLogSessionId(logSessionId);
+    }
     Store.dispatch(setUser(user));
 }
 
@@ -77,6 +86,7 @@ const SessionManager = {
     updateAccount,
     getToken,
     getAccount,
+    getLogSessionId,
     teardownSession
 };
 

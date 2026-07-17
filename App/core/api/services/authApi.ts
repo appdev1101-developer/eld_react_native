@@ -1,6 +1,6 @@
 import { Login, UserDataType } from '../../../Model/User';
 import { API } from '../endpoints';
-import { apiPost, toLegacyPayload } from '../client';
+import { apiGet, apiPost, toLegacyPayload } from '../client';
 import { LegacyApiPayload } from '../types/common';
 import legacyClient from '../legacyClient';
 import { mapEmptyData } from '../mappers/dashboardMapper';
@@ -8,6 +8,7 @@ import { mapEmptyData } from '../mappers/dashboardMapper';
 export interface LoginResult {
     token: string;
     userInfo: UserDataType;
+    logSessionId: string | null;
     raw: LegacyApiPayload;
 }
 
@@ -20,9 +21,16 @@ function mapLoginResult(raw: Record<string, unknown>): LoginResult {
             ...(raw.user_info as object)
         } as UserDataType);
 
+    const logSessionId = raw.log_session_id;
+    const normalizedLogSessionId =
+        logSessionId === undefined || logSessionId === null || logSessionId === ''
+            ? null
+            : String(logSessionId);
+
     return {
         token: String(raw.token ?? ''),
         userInfo,
+        logSessionId: normalizedLogSessionId,
         raw: raw as LegacyApiPayload
     };
 }
@@ -47,8 +55,22 @@ export const authApi = {
             message: response.message,
             statusCode: response.statusCode,
             token: response.data.token,
-            user_info: response.data.userInfo
+            user_info: response.data.userInfo,
+            log_session_id: response.data.logSessionId ?? undefined
         };
+    },
+
+    logout: (logSessionId: string | number) =>
+        apiGet<Record<string, never>>(
+            API.auth.logout(logSessionId),
+            mapEmptyData
+        ),
+
+    logoutLegacy: async (
+        logSessionId: string | number
+    ): Promise<LegacyApiPayload> => {
+        const response = await authApi.logout(logSessionId);
+        return toLegacyPayload(response);
     },
 
     forgotPasswordLegacy: (email: string): Promise<LegacyApiPayload> =>

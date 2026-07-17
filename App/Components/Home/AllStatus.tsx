@@ -1,9 +1,8 @@
 import { Image, StyleSheet, View } from 'react-native';
-import { DutyStatusIcon } from '../UI';
 import React, { useState } from 'react';
 import { moderateScale } from '../../Constants/PixelRatio';
 import HomeCard from './HomeCard';
-import { StatusDataType } from '../../Constants/dutyStatus';
+import { StatusDataType } from '../../Screens/Home';
 import { Icon, Text } from 'react-native-basic-elements';
 import { AppCard, EditField } from '../UI';
 import { FONTS } from '../../Constants/Fonts';
@@ -92,13 +91,10 @@ const AllStatus: React.FC<Props> = ({
                         style={styles.confirmActionCard}
                         onPress={handleConfirm}
                     >
-                        {selectedStatus ? (
-                            <DutyStatusIcon
-                                name={selectedStatus.icon}
-                                color={selectedStatus.themeColor}
-                                size={moderateScale(32)}
-                            />
-                        ) : null}
+                        <Image
+                            source={selectedStatus?.icon}
+                            style={styles.img}
+                        />
                         <Text style={styles.statusName}>Start</Text>
                         <Text style={styles.statusDesc}>Tap to Continue</Text>
                     </HomeCard>
@@ -129,10 +125,9 @@ const AllStatus: React.FC<Props> = ({
                                 key={index}
                                 onPress={() => onSelect(item)}
                             >
-                                <DutyStatusIcon
-                                    name={item.icon}
-                                    color={item.themeColor}
-                                    size={moderateScale(32)}
+                                <Image
+                                    source={item.icon}
+                                    style={styles.img}
                                 />
                                 <Text style={styles.statusName}>{item.name}</Text>
                                 <Text style={styles.statusDesc}>{item.description}</Text>

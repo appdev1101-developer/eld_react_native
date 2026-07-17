@@ -2,8 +2,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, ActivityIndicator, Alert, InteractionManager } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { Theme, useTheme } from 'react-native-basic-elements';
 import AppStatusBar from './App/Components/AppStatusBar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -141,7 +139,7 @@ const App = () => {
     }, [disconnectRealtime, loginStatus]);
 
     return (
-        <GestureHandlerRootView
+        <View
             style={{
                 flex: 1,
                 backgroundColor: '#fff'
@@ -206,7 +204,6 @@ const App = () => {
                     mode={!isdark ? 'light' : 'dark'}
                 >
                     <SafeAreaProvider>
-                        <BottomSheetModalProvider>
                         <NetworkProvider>
                             <NavigationContainer
                                 ref={(r) => NavigationService.setTopLevelNavigator(r)}
@@ -231,11 +228,10 @@ const App = () => {
                                 </Stack.Navigator>
                             </NavigationContainer>
                         </NetworkProvider>
-                        </BottomSheetModalProvider>
                     </SafeAreaProvider>
                 </Theme.Provider>
             )}
-        </GestureHandlerRootView>
+        </View>
     );
 };
 
