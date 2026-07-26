@@ -152,8 +152,8 @@ const SignIn = () => {
                                 onPress={() => setShowConflictModal(false)}
                             />
                             <Button
-                                title="Force Login"
-                                loadingTitle="Logging in..."
+                                title="Proceed"
+                                loadingTitle="Loading..."
                                 loading={forceLoginLoading}
                                 style={styles.modalActionButton}
                                 onPress={handleForceLogin}

@@ -131,6 +131,9 @@ const Compliance = () => {
 
                         <HOSChart
                             lineObject={chartData.graph_data.map((item) => {
+                                // console.log("<< Item 3 "+item[3] )
+                                // console.log("<< Item 4 "+item[4] )
+                                // console.log("<< Item 1 "+item[1] )
                                 return {
                                     start: item[3],
                                     end: item[4],

@@ -1,8 +1,7 @@
 import { Login, UserDataType } from '../../../Model/User';
 import { API } from '../endpoints';
-import { apiGet, apiPost, toLegacyPayload } from '../client';
+import { apiGet, apiPost, legacyMultipart, legacyPost, toLegacyPayload } from '../client';
 import { LegacyApiPayload } from '../types/common';
-import legacyClient from '../legacyClient';
 import { mapEmptyData } from '../mappers/dashboardMapper';
 
 export interface LoginResult {
@@ -74,14 +73,14 @@ export const authApi = {
     },
 
     forgotPasswordLegacy: (email: string): Promise<LegacyApiPayload> =>
-        legacyClient.post(API.auth.forgotPassword(email), {}),
+        legacyPost(API.auth.forgotPassword(email), {}),
 
     resetPasswordLegacy: (
         email: string,
         password: string,
         confirmPassword: string
     ): Promise<LegacyApiPayload> =>
-        legacyClient.multiupload(API.auth.resetPassword(email), 'POST', [], {
+        legacyMultipart(API.auth.resetPassword(email), {
             password,
             confirm_password: confirmPassword
         }),

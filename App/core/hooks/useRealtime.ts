@@ -78,10 +78,12 @@ export function useRealtime({
     const subscribeToUserChannel = useCallback(
         async (pusher: Pusher, resolvedUserId: number | string) => {
             const channelName = getPrivateUserChannel(resolvedUserId);
-
+            console.log("<<<<<<<<< channel name >>>>>>>> "+channelName)
             await pusher.subscribe({
                 channelName,
                 onEvent: (event) => {
+                    console.log("<<<<<<<<<<. "+event.eventName.toString()+" >>>>>>>");
+                    console.log("<<<<<<<<<<. "+event.data.toString()+" >>>>>>>");
                     handleForceLogoutEvent(event, () => onForceLogoutRef.current());
                 },
                 onSubscriptionError: (_channel, message) => {

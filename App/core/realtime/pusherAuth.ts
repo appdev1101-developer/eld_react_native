@@ -6,6 +6,12 @@ export async function authorizePusherChannel(
     channelName: string,
     socketId: string
 ): Promise<PusherAuthorizerResult> {
+    console.log("<<<<<<< Pusher EndPoint >>>>>>>>", authEndpoint);
+    const params= JSON.stringify({
+            socket_id: socketId,
+            channel_name: channelName
+        });
+    console.log("<<<<<<< Pusher params >>>>>>>>", params.toString());
     const response = await fetch(authEndpoint, {
         method: 'POST',
         headers: {
@@ -14,11 +20,9 @@ export async function authorizePusherChannel(
             Authorization: `Bearer ${token}`,
             'X-Requested-With': 'XMLHttpRequest'
         },
-        body: JSON.stringify({
-            socket_id: socketId,
-            channel_name: channelName
-        })
+        body: params
     });
+    console.log("<<<<<<< Pusher Response >>>>>>>>", response);
 
     if (!response.ok) {
         const errorText = await response.text();
