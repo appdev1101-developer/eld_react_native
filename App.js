@@ -35,6 +35,8 @@ const App = () => {
     const [isdark, setIsDark] = useState(false);
 
     const handleForceLogout = useCallback(() => {
+         logger.log(
+                `Same user is logged in another device so this account is about to logged out`);
         Alert.alert(
             'Session Expired',
             'You have been logged out because your account was accessed from another device.',
@@ -54,6 +56,9 @@ const App = () => {
         userId: userData?.id ?? userData?.driver_id ?? null,
         onForceLogout: handleForceLogout
     });
+    // useEffect(() => {
+    //     initCrashlytics().catch(() => {});
+    // }, []);
 
     useEffect(() => {
         ensureEldConnectionBeepListener();
@@ -114,6 +119,12 @@ const App = () => {
             }
         });
     }, []);
+
+    // useEffect(() => {
+    //     const driverId = userData?.id ?? userData?.driver_id ?? null;
+    //     identifyUser(loginStatus ? driverId : null);
+    //     setContext('loginStatus', loginStatus ? 'loggedIn' : 'loggedOut');
+    // }, [loginStatus, userData?.id, userData?.driver_id]);
 
     useEffect(() => {
         PushNotification.setAuthState({
