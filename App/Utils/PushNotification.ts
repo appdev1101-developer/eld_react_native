@@ -4,8 +4,17 @@ import notifee, {
     AuthorizationStatus,
     EventType
 } from '@notifee/react-native';
-import messaging, {
-    FirebaseMessagingTypes
+import {
+  getMessaging,
+  getToken,
+  deleteToken,
+  onMessage,
+  onNotificationOpenedApp,
+  getInitialNotification,
+  onTokenRefresh,
+  requestPermission,
+  AuthorizationStatus as FCMAuthorizationStatus,
+  FirebaseMessagingTypes,
 } from '@react-native-firebase/messaging';
 import { Platform } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
@@ -18,6 +27,9 @@ import {
 
 const DEFAULT_CHANNEL_ID = 'truxy_default';
 const FCM_REGISTERED_KEY = '@truxy/fcm_registered';
+
+// Single messaging instance (modular)
+const messaging = getMessaging();
 
 type FcmRegisteredRecord = {
     token: string;
@@ -80,14 +92,14 @@ async function createDefaultChannel(): Promise<string> {
 async function ensureNotificationPermission(): Promise<boolean> {
     if (Platform.OS === 'ios') {
         const notifeeSettings = await notifee.requestPermission();
-        const fcmAuthStatus = await messaging().requestPermission();
+        const fcmAuthStatus = await requestPermission(messaging);
 
         const notifeeGranted =
             notifeeSettings.authorizationStatus === AuthorizationStatus.AUTHORIZED ||
             notifeeSettings.authorizationStatus === AuthorizationStatus.PROVISIONAL;
         const fcmGranted =
-            fcmAuthStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-            fcmAuthStatus === messaging.AuthorizationStatus.PROVISIONAL;
+            fcmAuthStatus === FCMAuthorizationStatus.AUTHORIZED ||
+            fcmAuthStatus === FCMAuthorizationStatus.PROVISIONAL;
 
         return notifeeGranted && fcmGranted;
     }
@@ -102,7 +114,7 @@ async function ensureNotificationPermission(): Promise<boolean> {
 
 async function getFcmToken(): Promise<string | null> {
     try {
-        const token = await messaging().getToken();
+        const token = await getToken(messaging);
         return token || null;
     } catch (error) {
         console.warn('Failed to get FCM token:', error);
@@ -205,7 +217,7 @@ function attachListeners(): () => void {
         }
     };
 
-    const unsubscribeForeground = messaging().onMessage(async (remoteMessage) => {
+    const unsubscribeForeground = onMessage(messaging,async (remoteMessage) => {
         if (handlersRef.onForegroundMessage) {
             handlersRef.onForegroundMessage(remoteMessage);
         } else {
@@ -213,14 +225,13 @@ function attachListeners(): () => void {
         }
     });
 
-    const unsubscribeOpened = messaging().onNotificationOpenedApp((remoteMessage) => {
+    const unsubscribeOpened = onNotificationOpenedApp(messaging,(remoteMessage) => {
         if (remoteMessage) {
             handleOpened(remoteMessage);
         }
     });
 
-    messaging()
-        .getInitialNotification()
+    getInitialNotification(messaging)
         .then((remoteMessage) => {
             if (remoteMessage) {
                 handleOpened(remoteMessage);
@@ -245,7 +256,7 @@ function attachListeners(): () => void {
         }
     );
 
-    const unsubscribeTokenRefresh = messaging().onTokenRefresh(async (token) => {
+    const unsubscribeTokenRefresh = onTokenRefresh(messaging,async (token) => {
         if (!authRef.isLoggedIn) {
             return;
         }
@@ -293,28 +304,28 @@ function setAuthState({
 async function clearLocalToken(): Promise<void> {
     await clearRegisteredRecord();
     try {
-        await messaging().deleteToken();
+        await deleteToken(messaging);
     } catch (error) {
         console.warn('Failed to delete FCM token:', error);
     }
 }
 
-/** @deprecated Use initialize() once at app mount */
-function setupPushNotificationListeners(
-    handlers: PushNotificationHandlers = {}
-): () => void {
-    return initialize(handlers);
-}
+// /** @deprecated Use initialize() once at app mount */
+// function setupPushNotificationListeners(
+//     handlers: PushNotificationHandlers = {}
+// ): () => void {
+//     return initialize(handlers);
+// }
 
-/** @deprecated Use registerIfNeeded() */
-async function syncFcmToken(): Promise<string | null> {
-    return registerIfNeeded();
-}
+// /** @deprecated Use registerIfNeeded() */
+// async function syncFcmToken(): Promise<string | null> {
+//     return registerIfNeeded();
+// }
 
-/** @deprecated Use clearLocalToken() */
-async function deleteFcmToken(): Promise<void> {
-    await clearLocalToken();
-}
+// /** @deprecated Use clearLocalToken() */
+// async function deleteFcmToken(): Promise<void> {
+//     await clearLocalToken();
+// }
 
 const PushNotification = {
     initialize,
@@ -324,9 +335,9 @@ const PushNotification = {
     getFcmToken,
     displayRemoteMessage,
     clearLocalToken,
-    setupPushNotificationListeners,
-    syncFcmToken,
-    deleteFcmToken
+    // setupPushNotificationListeners,
+    // syncFcmToken,
+    // deleteFcmToken
 };
 
 export default PushNotification;

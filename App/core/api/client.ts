@@ -62,6 +62,11 @@ apiClient.interceptors.request.use(async (config) => {
     if (token) {
         config.headers = config.headers ?? {};
         config.headers.Authorization = `Bearer ${token}`;
+        if(__DEV__)
+        {
+            console.log(`[Auth Token] ${token}`);
+        }
+
     }
 
     if (__DEV__) {
