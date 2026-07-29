@@ -1,6 +1,8 @@
 /**
  * @format
  */
+// at the very top of index.js, before any Firebase imports
+//globalThis.RNFB_SILENCE_MODULAR_DEPRECATION_WARNINGS = true;
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import React from 'react';
