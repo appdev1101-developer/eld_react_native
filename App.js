@@ -22,6 +22,10 @@ import GeoDataBackgroundService from './App/Utils/GeoDataService';
 import PushNotification from './App/Utils/PushNotification';
 import messageWebSocket from './App/Utils/MessageWebSocket';
 import NetworkProvider from './App/Components/UI/NetworkProvider';
+// Todo: used in crashlytics
+import { ErrorBoundary } from './App/Components/ErrorBoundary';
+import { initCrashlytics, identifyUser, setContext, logger } from './App/core/logger';
+ 
 
 const Stack = createStackNavigator();
 
@@ -56,9 +60,10 @@ const App = () => {
         userId: userData?.id ?? userData?.driver_id ?? null,
         onForceLogout: handleForceLogout
     });
-    // useEffect(() => {
-    //     initCrashlytics().catch(() => {});
-    // }, []);
+    // Todo: used in crashlytics
+    useEffect(() => {
+        initCrashlytics().catch(() => {});
+    }, []);
 
     useEffect(() => {
         ensureEldConnectionBeepListener();
@@ -119,12 +124,12 @@ const App = () => {
             }
         });
     }, []);
-
-    // useEffect(() => {
-    //     const driverId = userData?.id ?? userData?.driver_id ?? null;
-    //     identifyUser(loginStatus ? driverId : null);
-    //     setContext('loginStatus', loginStatus ? 'loggedIn' : 'loggedOut');
-    // }, [loginStatus, userData?.id, userData?.driver_id]);
+    // Todo: implement to check user in crashlytics
+    useEffect(() => {
+        const driverId = userData?.id ?? userData?.driver_id ?? null;
+        identifyUser(loginStatus ? driverId : null);
+        setContext('loginStatus', loginStatus ? 'loggedIn' : 'loggedOut');
+    }, [loginStatus, userData?.id, userData?.driver_id]);
 
     useEffect(() => {
         PushNotification.setAuthState({
@@ -150,99 +155,101 @@ const App = () => {
     }, [disconnectRealtime, loginStatus]);
 
     return (
-        <View
-            style={{
-                flex: 1,
-                backgroundColor: '#fff'
-            }}
-        >
-            <AppStatusBar />
+        <ErrorBoundary>
+            <View
+                style={{
+                    flex: 1,
+                    backgroundColor: '#fff'
+                }}
+            >
+                <AppStatusBar />
 
-            {isLoading ? (
-                <View
-                    style={{
-                        flex: 1,
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}
-                >
-                    <ActivityIndicator size="large" />
-                </View>
-            ) : (
-                <Theme.Provider
-                    theme={{
-                        light: {
-                            primaryThemeColor: '#F44336',
-                            secondaryThemeColor: '#FFFFFF',
-                            primaryFontColor: COLORS.light.primaryFontColor,
-                            secondaryFontColor: '#60D669',
-                            cardColor: COLORS.light.cardColor,
-                            headerColor: '#FFFFFF',
-                            pageBackgroundColor: '#FFFFFF',
-                            tabBarColor: '#D3D3D3',
-                            shadowColor: '#999',
-                            statusBarStyle: 'dark-content',
-                            buttonColor: COLORS.light.buttonColor,
-                            secondaryButtoncolor: '#147C32',
-                            boxColor: 'rgba(104, 185, 46, 0.2)',
-                            borderColor: 'rgba(0, 0, 0, 0.3)',
-                            themeborderColor: 'rgba(248, 137, 129, 0.35)',
-                            subTxtColor: 'rgba(37, 51, 58, 0.7)',
-                            white: '#FFFFFF',
-                            greycardColor: 'rgba(244, 67, 54, 0.10)'
-                        },
-                        dark: {
-                            primaryThemeColor: '#F44336',
-                            secondaryThemeColor: '#FFFFFF',
-                            primaryFontColor: '#25333A',
-                            secondaryFontColor: '#60D669',
-                            cardColor: 'rgba(244, 67, 54, 0.4)',
-                            headerColor: '#FFFFFF',
-                            pageBackgroundColor: '#FFFFFF',
-                            tabBarColor: '#D3D3D3',
-                            shadowColor: '#999',
-                            statusBarStyle: 'dark-content',
-                            buttonColor: '#F44336',
-                            secondaryButtoncolor: '#147C32',
-                            boxColor: 'rgba(104, 185, 46, 0.2)',
-                            borderColor: 'rgba(0, 0, 0, 0.3)',
-                            themeborderColor: 'rgba(248, 137, 129, 0.35)',
-                            subTxtColor: 'rgba(37, 51, 58, 0.7)',
-                            white: '#FFFFFF',
-                            greycardColor: 'rgba(244, 67, 54, 0.10)'
-                        }
-                    }}
-                    mode={!isdark ? 'light' : 'dark'}
-                >
-                    <SafeAreaProvider>
-                        <NetworkProvider>
-                            <NavigationContainer
-                                ref={(r) => NavigationService.setTopLevelNavigator(r)}
-                            >
-                                <Stack.Navigator
-                                    initialRouteName="AuthStack"
-                                    screenOptions={{
-                                        headerShown: false
-                                    }}
+                {isLoading ? (
+                    <View
+                        style={{
+                            flex: 1,
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        <ActivityIndicator size="large" />
+                    </View>
+                ) : (
+                    <Theme.Provider
+                        theme={{
+                            light: {
+                                primaryThemeColor: '#F44336',
+                                secondaryThemeColor: '#FFFFFF',
+                                primaryFontColor: COLORS.light.primaryFontColor,
+                                secondaryFontColor: '#60D669',
+                                cardColor: COLORS.light.cardColor,
+                                headerColor: '#FFFFFF',
+                                pageBackgroundColor: '#FFFFFF',
+                                tabBarColor: '#D3D3D3',
+                                shadowColor: '#999',
+                                statusBarStyle: 'dark-content',
+                                buttonColor: COLORS.light.buttonColor,
+                                secondaryButtoncolor: '#147C32',
+                                boxColor: 'rgba(104, 185, 46, 0.2)',
+                                borderColor: 'rgba(0, 0, 0, 0.3)',
+                                themeborderColor: 'rgba(248, 137, 129, 0.35)',
+                                subTxtColor: 'rgba(37, 51, 58, 0.7)',
+                                white: '#FFFFFF',
+                                greycardColor: 'rgba(244, 67, 54, 0.10)'
+                            },
+                            dark: {
+                                primaryThemeColor: '#F44336',
+                                secondaryThemeColor: '#FFFFFF',
+                                primaryFontColor: '#25333A',
+                                secondaryFontColor: '#60D669',
+                                cardColor: 'rgba(244, 67, 54, 0.4)',
+                                headerColor: '#FFFFFF',
+                                pageBackgroundColor: '#FFFFFF',
+                                tabBarColor: '#D3D3D3',
+                                shadowColor: '#999',
+                                statusBarStyle: 'dark-content',
+                                buttonColor: '#F44336',
+                                secondaryButtoncolor: '#147C32',
+                                boxColor: 'rgba(104, 185, 46, 0.2)',
+                                borderColor: 'rgba(0, 0, 0, 0.3)',
+                                themeborderColor: 'rgba(248, 137, 129, 0.35)',
+                                subTxtColor: 'rgba(37, 51, 58, 0.7)',
+                                white: '#FFFFFF',
+                                greycardColor: 'rgba(244, 67, 54, 0.10)'
+                            }
+                        }}
+                        mode={!isdark ? 'light' : 'dark'}
+                    >
+                        <SafeAreaProvider>
+                            <NetworkProvider>
+                                <NavigationContainer
+                                    ref={(r) => NavigationService.setTopLevelNavigator(r)}
                                 >
-                                    {!loginStatus ? (
-                                        <Stack.Screen
-                                            name="AuthStack"
-                                            component={AuthStack}
-                                        />
-                                    ) : (
-                                        <Stack.Screen
-                                            name="AppStack"
-                                            component={AppStack}
-                                        />
-                                    )}
-                                </Stack.Navigator>
-                            </NavigationContainer>
-                        </NetworkProvider>
-                    </SafeAreaProvider>
-                </Theme.Provider>
-            )}
-        </View>
+                                    <Stack.Navigator
+                                        initialRouteName="AuthStack"
+                                        screenOptions={{
+                                            headerShown: false
+                                        }}
+                                    >
+                                        {!loginStatus ? (
+                                            <Stack.Screen
+                                                name="AuthStack"
+                                                component={AuthStack}
+                                            />
+                                        ) : (
+                                            <Stack.Screen
+                                                name="AppStack"
+                                                component={AppStack}
+                                            />
+                                        )}
+                                    </Stack.Navigator>
+                                </NavigationContainer>
+                            </NetworkProvider>
+                        </SafeAreaProvider>
+                    </Theme.Provider>
+                )}
+            </View>
+        </ErrorBoundary>
     );
 };
 

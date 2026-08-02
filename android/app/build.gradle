@@ -4,7 +4,7 @@ apply plugin: "com.facebook.react"
 apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")
 apply plugin: 'com.android.application'
 apply plugin: 'com.google.gms.google-services'
-//apply plugin: 'com.google.firebase.crashlytics'
+apply plugin: 'com.google.firebase.crashlytics'
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -121,11 +121,14 @@ android {
 
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
+    implementation platform('com.google.firebase:firebase-bom:33.1.2')
     implementation("com.facebook.react:react-android")
-
+    
     //implementation 'com.android.support:support-v4:28.0.0'
     implementation 'joda-time:joda-time:2.9.9'
     implementation 'com.github.geometris:GeometrisMobile:1.0.10'
+    // Add the Crashlytics SDK dependency
+    implementation 'com.google.firebase:firebase-crashlytics'
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
