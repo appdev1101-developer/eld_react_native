@@ -1,4 +1,13 @@
-import crashlytics from '@react-native-firebase/crashlytics';
+import {
+    getCrashlytics,
+    setCrashlyticsCollectionEnabled,
+    setUserId,
+    setAttribute,
+    setAttributes,
+    log as fbLog,
+    recordError as fbRecordError,
+    crash as fbCrash,
+} from '@react-native-firebase/crashlytics';
 
 /**
  * Thin wrapper around Crashlytics. Nothing in the rest of the app should
@@ -18,11 +27,13 @@ import crashlytics from '@react-native-firebase/crashlytics';
  *    Crashlytics reports are visible to anyone with Firebase console access.
  */
 
+const crashlyticsInstance = getCrashlytics();
+
 let enabled = false;
 
 export async function initCrashlytics(options?: { forceEnableInDev?: boolean }) {
     const shouldEnable = !__DEV__ || options?.forceEnableInDev === true;
-    await crashlytics().setCrashlyticsCollectionEnabled(shouldEnable);
+    await setCrashlyticsCollectionEnabled(crashlyticsInstance, shouldEnable);
     enabled = shouldEnable;
     logger.log(`Crashlytics initialized (enabled=${shouldEnable})`);
 }
@@ -32,7 +43,7 @@ export async function initCrashlytics(options?: { forceEnableInDev?: boolean }) 
  * reports can be tied to a driver without leaking PII beyond an id.
  */
 export function identifyUser(userId: string | number | null) {
-    crashlytics().setUserId(userId != null ? String(userId) : '');
+    setUserId(crashlyticsInstance, userId != null ? String(userId) : '');
 }
 
 /**
@@ -42,7 +53,7 @@ export function identifyUser(userId: string | number | null) {
  * tight loop (64-key limit, and each call is a native bridge round trip).
  */
 export function setContext(key: string, value: string | number | boolean) {
-    crashlytics().setAttribute(key, String(value));
+    setAttribute(crashlyticsInstance, key, String(value));
 }
 
 export function setContextBatch(values: Record<string, string | number | boolean>) {
@@ -50,7 +61,7 @@ export function setContextBatch(values: Record<string, string | number | boolean
     Object.entries(values).forEach(([key, value]) => {
         stringified[key] = String(value);
     });
-    crashlytics().setAttributes(stringified);
+    setAttributes(crashlyticsInstance, stringified);
 }
 
 /**
@@ -60,7 +71,7 @@ export function setContextBatch(values: Record<string, string | number | boolean
  * this data only surfaces if a crash or recordError() happens afterward.
  */
 function log(message: string) {
-    crashlytics().log(message);
+    fbLog(crashlyticsInstance, message);
     if (__DEV__) {
         // eslint-disable-next-line no-console
         console.log(`[crashlytics] ${message}`);
@@ -79,7 +90,7 @@ function recordError(error: unknown, context?: string) {
     }
     const normalized =
         error instanceof Error ? error : new Error(typeof error === 'string' ? error : JSON.stringify(error));
-    crashlytics().recordError(normalized);
+    fbRecordError(crashlyticsInstance, normalized);
 }
 
 /**
@@ -91,7 +102,7 @@ function testCrash() {
     if (!__DEV__) {
         return;
     }
-    crashlytics().crash();
+    fbCrash(crashlyticsInstance);
 }
 
 export const logger = {

@@ -60,9 +60,9 @@ const App = () => {
         userId: userData?.id ?? userData?.driver_id ?? null,
         onForceLogout: handleForceLogout
     });
-    // Todo: used in crashlytics
+    // Todo: used in crashlytics. We have enabled the crashlytics for testing
     useEffect(() => {
-        initCrashlytics().catch(() => {});
+        initCrashlytics({forceEnableInDev:true}).catch(() => {});
     }, []);
 
     useEffect(() => {
