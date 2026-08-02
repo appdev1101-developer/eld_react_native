@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance } from 'axios';
 import Storage from '../../Utils/Storage';
 import { MAIN_BASE_URL } from '../../Utils/EnvVariables';
 import { getIsOnline } from '../network/networkMonitor';
+import { logger } from '../logger';
 import {
     ApiError,
     ApiResponse,
@@ -62,6 +63,11 @@ apiClient.interceptors.request.use(async (config) => {
     if (token) {
         config.headers = config.headers ?? {};
         config.headers.Authorization = `Bearer ${token}`;
+        if(__DEV__)
+        {
+            console.log(`[Auth Token] ${token}`);
+        }
+
     }
 
     if (__DEV__) {
@@ -81,12 +87,15 @@ apiClient.interceptors.response.use(
     }, 
     (error: AxiosError | OfflineError) => {
         if (isOfflineError(error)) {
+             logger.log(`API offline: ${error.message}`);
             return Promise.reject(error);
         }
 
         const axiosError = error as AxiosError<Record<string, unknown>>;
+        const endpoint = `${axiosError.config?.method?.toUpperCase() ?? '?'} ${axiosError.config?.url ?? '?'}`;
 
         if (axiosError.code === 'ECONNABORTED') {
+            logger.log(`API timeout: ${endpoint}`);
             return Promise.reject({
                 statusCode: 408,
                 message: 'Request timed out'
@@ -94,13 +103,27 @@ apiClient.interceptors.response.use(
         }
 
         if (!axiosError.response) {
+            logger.recordError(axiosError, `API network error: ${endpoint}`);
             return Promise.reject({
                 statusCode: 0,
                 message: 'Network error. Check your connection.'
             } satisfies ApiError);
         }
-
+        const status = axiosError.response.status;
         const data = axiosError.response.data;
+
+        // Breadcrumb for every failure (method + endpoint + status only —
+        // never the request/response body, which can carry tokens or PII).
+        logger.log(`API error ${status}: ${endpoint}`);
+        
+
+        // Escalate server-side failures to a recorded (non-fatal) error;
+        // routine 4xx validation responses stay as breadcrumbs only, since
+        // those are usually expected user-input problems, not bugs.
+        if (status >= 500) {
+            logger.recordError(axiosError, `API ${status}: ${endpoint}`);
+        }
+
         return Promise.reject({
             statusCode: axiosError.response.status,
             message: String(data?.message ?? 'Request failed'),

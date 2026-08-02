@@ -15,6 +15,7 @@ import { authorizePusherChannel } from '../realtime/pusherAuth';
 
 const CONNECT_TIMEOUT_MS = 30_000;
 const FORCE_LOGOUT_EVENT = 'ForceLogoutEvent';
+const REALTIME_DUTY_STATUS_EVENT = 'RealtimeDutyStatusEvent';
 
 type UseRealtimeOptions = {
     loginStatus: boolean;
@@ -42,6 +43,23 @@ function handleForceLogoutEvent(event: PusherEvent, onForceLogout: () => void | 
         }
     }
 }
+//
+// function handleRealTimeDutyStatusEvent(event: PusherEvent, onForceLogout: () => void | Promise<void>) {
+//     if (event.eventName !== REALTIME_DUTY_STATUS_EVENT) {
+//         return;
+//     }
+
+//     try {
+//         const eventData = JSON.parse(event.data) as { type?: string };
+//         if (eventData.type === 'LOGOUT') {
+//             //void onForceLogout();
+//         }
+//     } catch (error) {
+//         if (__DEV__) {
+//             console.warn('Failed to parse force logout event', error);
+//         }
+//     }
+// }
 
 export function useRealtime({
     loginStatus,
