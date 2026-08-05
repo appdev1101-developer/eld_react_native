@@ -3,12 +3,14 @@ import Storage from './Storage';
 import { getToken } from '../core/session/sessionStorage';
 import { getEldPermissionStatus } from './EldPermissions';
 import { MAIN_BASE_URL } from './EnvVariables';
+import { logger } from '../core/logger';
 
 const { GeoDataService: NativeGeoDataService } = NativeModules;
 
 const STORAGE_KEY_DEVICE = 'eld_device_address';
 
 const getEldApiUrl = () => `${MAIN_BASE_URL}/mobileAPI/insert/bluetooth-data`;
+
 
 /**
  * JS wrapper for the GeoDataForegroundService native module.
@@ -39,9 +41,10 @@ const GeoDataBackgroundService = {
         const token: string = (await getToken()) ?? '';
         const eldDataUrl=getEldApiUrl();
         await Storage.set(STORAGE_KEY_DEVICE, deviceAddress);
-        // console.log(">>>> Token >>>> "+token);
-        // console.log(">>>> ELD Data Url >>>> "+eldDataUrl);
-        // console.log(">>>> Bluetooth Device >>>> "+deviceAddress);
+        
+        logger.log(">>>> Token >>>> "+token);
+        logger.log(">>>> ELD Data Url >>>> "+eldDataUrl);
+        logger.log(">>>> Bluetooth Device >>>> "+deviceAddress);
         return NativeGeoDataService.startService(eldDataUrl, token, deviceAddress);
     },
 

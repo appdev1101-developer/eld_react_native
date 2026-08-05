@@ -42,10 +42,15 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
-
+      <!-- Adding this variable for crashlytics -->
       <meta-data
-        android:name="com.google.android.geo.API_KEY"
-        android:value="AIzaSyBB7W_XXb6ez5hA1jpwYUr4zWS8JF_fJ7A"/>
+        android:name="firebase_crashlytics_collection_enabled"
+        android:value="false" />
+
+       <!-- Add this inside the application tag -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${mapsApiKey}" />
 
         <service
             android:name="com.geometris.wqlib.WQSmartService"

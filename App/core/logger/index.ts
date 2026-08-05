@@ -103,6 +103,7 @@ function testCrash() {
         return;
     }
     fbCrash(crashlyticsInstance);
+    console.log(">>>>>>>> Test crash executed")
 }
 
 export const logger = {

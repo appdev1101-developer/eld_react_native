@@ -63,17 +63,18 @@ apiClient.interceptors.request.use(async (config) => {
     if (token) {
         config.headers = config.headers ?? {};
         config.headers.Authorization = `Bearer ${token}`;
-        if(__DEV__)
-        {
-            console.log(`[Auth Token] ${token}`);
-        }
+        // if(__DEV__)
+        // {
+        //     console.log(`[Auth Token] ${token}`);
+        // }
 
     }
 
-    if (__DEV__) {
+    //if (__DEV__) 
+    {
         // Dev-only, and deliberately never logs request/response bodies —
         // those can contain auth tokens or driver PII.
-        console.log(`[api] ${config.method?.toUpperCase()} ${config.url}`);
+        logger.log(`[api] ${config.method?.toUpperCase()} ${config.url}`);
     }
 
     return config;

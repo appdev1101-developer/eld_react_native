@@ -6,6 +6,7 @@ import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import NavigationService from '../../Services/Navigation';
 import { THEME } from '../../Constants/Theme';
+import {  logger,isCrashlyticsEnabled } from '../../core/logger';
 
 const Welcome = () => {
     return (
@@ -39,6 +40,11 @@ const Welcome = () => {
                     inset={false}
                     textStyle={styles.secondaryBtnText}
                     style={styles.secondaryBtn}
+                    onPress={() => {
+                        isCrashlyticsEnabled() ?
+                        logger.testCrash() : console.log("Not enabled")
+                     }
+                    }
                 />
             </View>
         </ImageBackground>

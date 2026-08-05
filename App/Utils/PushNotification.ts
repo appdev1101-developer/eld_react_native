@@ -115,6 +115,8 @@ async function ensureNotificationPermission(): Promise<boolean> {
 async function getFcmToken(): Promise<string | null> {
     try {
         const token = await getToken(messaging);
+        console.log(">>>>>> FCM token "+token)
+
         return token || null;
     } catch (error) {
         console.warn('Failed to get FCM token:', error);

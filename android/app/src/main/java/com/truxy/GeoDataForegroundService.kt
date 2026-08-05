@@ -50,6 +50,9 @@ class GeoDataForegroundService : Service() {
     private var sessionStartTime: String = ""
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    // Crashlytics — shared instance/helpers, kept consistent with GeometrisModule
+    private val crashlytics get() = CrashlyticsHelper.crashlytics
+
     // Reconnect state
     private var reconnectAttempts = 0
     private val maxReconnectAttempts = 5
@@ -62,7 +65,7 @@ class GeoDataForegroundService : Service() {
             executor.execute { flushQueue() }
         }
     }
-
+    
     // Bluetooth ACL state receiver
     private val bluetoothReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -78,11 +81,13 @@ class GeoDataForegroundService : Service() {
             when (intent?.action) {
                 BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
                     Log.w(TAG, "BT device disconnected – scheduling reconnect")
+                    crashlytics.log("BT device disconnected: $savedDeviceAddress")
                     updateNotification("ELD disconnected – reconnecting...")
                     scheduleReconnect()
                 }
                 BluetoothDevice.ACTION_ACL_CONNECTED -> {
                     Log.d(TAG, "BT device reconnected")
+                    crashlytics.log("BT device reconnected: $savedDeviceAddress")
                     cancelReconnect()
                     reconnectAttempts = 0
                     // Re-register the OBD handler so data keeps flowing
@@ -116,6 +121,7 @@ class GeoDataForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        crashlytics.log("GeoDataForegroundService created")
         db = GeoDataDatabase(this)
         createNotificationChannel()
         registerNetworkCallback()
@@ -124,16 +130,18 @@ class GeoDataForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            crashlytics.log("GeoDataForegroundService stop requested")
             clearSavedPrefs()
             stopSelf()
             return START_NOT_STICKY
         }
-
+        crashlytics.log("GeoDataForegroundService onStartCommand()")
         val prefs = getSharedPreferences(GeoDataPrefs.PREFS_NAME, Context.MODE_PRIVATE)
 
         val deviceAddress: String
         if (intent != null &&
             !intent.getStringExtra(EXTRA_DEVICE_ADDRESS).isNullOrEmpty()) {
+            crashlytics.log("GeoDataForegroundService if condition")
             apiUrl        = intent.getStringExtra(EXTRA_API_URL)        ?: ""
             token         = intent.getStringExtra(EXTRA_TOKEN)          ?: ""
             deviceAddress = intent.getStringExtra(EXTRA_DEVICE_ADDRESS) ?: ""
@@ -147,6 +155,9 @@ class GeoDataForegroundService : Service() {
             apiUrl        = prefs.getString(GeoDataPrefs.KEY_API_URL, "") ?: ""
             token         = prefs.getString(GeoDataPrefs.KEY_TOKEN,   "") ?: ""
         }
+        crashlytics.setCustomKey("eld_device_address", deviceAddress)
+        crashlytics.setCustomKey("eld_api_url", apiUrl)
+        crashlytics.log("GeoDataForegroundService -> data "+deviceAddress+"  "+ apiUrl+"  "+token)
 
         if (apiUrl.isBlank()) {
             Log.e(TAG, "Cannot start – apiUrl is empty")
@@ -179,7 +190,9 @@ class GeoDataForegroundService : Service() {
     }
 
     override fun onDestroy() {
+
         super.onDestroy()
+        crashlytics.log("GeoDataForegroundService onDestroy()")
         cancelReconnect()
         try { unregisterReceiver(bluetoothReceiver) } catch (_: Exception) {}
         try { WherequbeService.getInstance().disconnect() } catch (_: Exception) {}
@@ -209,6 +222,7 @@ class GeoDataForegroundService : Service() {
             if (!reconnecting) {
                 val connected = WherequbeService.getInstance().connect(deviceAddress)
                 if (!connected) {
+                    crashlytics.log("connect() returned false for $deviceAddress")
                     Log.w(TAG, "connect() returned false for $deviceAddress")
                     scheduleReconnect()
                     return
@@ -219,14 +233,18 @@ class GeoDataForegroundService : Service() {
                 BaseRequest.OBD_MEASUREMENT,
                 object : RequestHandler {
                     override fun onRecv(ctx: android.content.Context, request: BaseRequest) {
+                        crashlytics.log("GeoDataForegroundService  onRecv()")
                         val geoData = request.getObject() as? GeoData ?: return
                         executor.execute { handleGeoData(geoData) }
                     }
                 }
             )
             Log.d(TAG, "OBD session started for $deviceAddress")
+            crashlytics.log("OBD session started for $deviceAddress")
         } catch (e: Exception) {
             Log.e(TAG, "OBD session error: ${e.message}")
+            crashlytics.log("OBD session error for $deviceAddress")
+            crashlytics.recordException(e)
             scheduleReconnect()
         }
     }
@@ -234,6 +252,9 @@ class GeoDataForegroundService : Service() {
     private fun scheduleReconnect() {
         if (reconnectAttempts >= maxReconnectAttempts) {
             Log.e(TAG, "Max reconnect attempts reached – stopping service")
+            crashlytics.recordException(
+            Exception("ELD max reconnect attempts reached for $savedDeviceAddress, stopping service")
+            )
             clearSavedPrefs()
             mainHandler.post { stopSelf() }
             return
@@ -273,6 +294,7 @@ class GeoDataForegroundService : Service() {
             if (!uploadPayload(json)) {
                 db.insert(json)
                 Log.w(TAG, "Upload failed – queued (pending: ${db.count()})")
+                crashlytics.log("GeoData upload failed, queued (pending=${db.count()})")
                 updateNotification("Upload failed – ${db.count()} queued")
             } else {
                 updateNotification("Last upload: ${timeFormat.format(Date())}")
@@ -280,6 +302,7 @@ class GeoDataForegroundService : Service() {
         } else {
             db.insert(json)
             Log.d(TAG, "Offline – queued (pending: ${db.count()})")
+            crashlytics.log("GeoData queued offline (pending=${db.count()})")
             updateNotification("Offline – ${db.count()} record(s) queued")
         }
     }
@@ -290,11 +313,13 @@ class GeoDataForegroundService : Service() {
         val pending = db.getAll()
         if (pending.isEmpty()) return
         Log.d(TAG, "Flushing ${pending.size} queued record(s)")
+        crashlytics.log("Flushing ${pending.size} queued record(s)")
         for ((id, payload) in pending) {
             if (uploadPayload(payload)) {
                 db.delete(id)
             } else {
                 Log.w(TAG, "Flush failed at record $id – will retry later")
+                crashlytics.log("GeoData flush failed at record $id, will retry")
                 break
             }
         }
@@ -352,131 +377,140 @@ class GeoDataForegroundService : Service() {
     }
 
     private fun geoDataToJson(data: GeoData): String {
-        return JSONObject().apply {
-            // Basic status
-            put("dataSet", data.isDataSet)
-            data.protocol?.let { put("protocolId", it) }
-            
-            // Vehicle identification
-            put("vin", data.vin ?: "")
-            
-            // Odometer
-            put("odometer", data.odometer ?: 0.0)
-            put("odometerTimestamp", data.odometerTimestamp?.toString() ?: "")
-            
-            // Engine hours
-            put("engineHours", data.engTotalHours ?: 0.0)
-            put("engineHoursTimestamp", data.engTotalHoursTimestamp?.toString() ?: "")
-            
-            // Speed - merge with unidentified events speed if normal speed is 0.0
-            var finalSpeed = data.vehicleSpeed ?: 0.0
-            if (finalSpeed == 0.0) {
-                try {
-                    data.unidentifiedEventArrayList?.lastOrNull()?.vehicleSpeed?.let { eventSpeed ->
-                        if (eventSpeed > 0.0) {
-                            finalSpeed = eventSpeed
+        val issues = CrashlyticsHelper.FieldIssues()
+
+        val json = JSONObject().apply {
+            try {
+                // Basic status
+                put("dataSet", data.isDataSet)
+                data.protocol?.let { put("protocolId", it) } ?: issues.nullFields.add("protocolId")
+
+                // Vehicle identification
+                put("vin", data.vin ?: "")
+                if (data.vin.isNullOrBlank()) issues.nullFields.add("vin")
+
+                // Odometer
+                if (data.odometer == null) issues.nullFields.add("odometer")
+                put("odometer", data.odometer ?: 0.0)
+                put("odometerTimestamp", data.odometerTimestamp?.toString() ?: "")
+
+                // Engine hours
+                if (data.engTotalHours == null) issues.nullFields.add("engineHours")
+                put("engineHours", data.engTotalHours ?: 0.0)
+                put("engineHoursTimestamp", data.engTotalHoursTimestamp?.toString() ?: "")
+
+                // Speed - merge with unidentified events speed if normal speed is 0.0
+                var finalSpeed = data.vehicleSpeed
+                if (finalSpeed == null) issues.nullFields.add("speed")
+                if ((finalSpeed ?: 0.0) == 0.0) {
+                    try {
+                        data.unidentifiedEventArrayList?.lastOrNull()?.vehicleSpeed?.let { eventSpeed ->
+                            if (eventSpeed > 0.0) {
+                                finalSpeed = eventSpeed
+                            }
                         }
+                    } catch (e: Exception) {
+                        issues.exceptions.add("speed_fallback" to e)
+                    }
+                    if ((finalSpeed ?: 0.0) == 0.0) issues.nullFields.add("speed_fallback_exhausted")
+                }
+                put("speed", finalSpeed ?: 0.0)
+                put("speedTimestamp", data.vehicleSpeedTimestamp?.toString() ?: "")
+
+                // Engine RPM
+                if (data.engineRPM == null) issues.nullFields.add("engineRpm")
+                put("engineRpm", data.engineRPM ?: 0.0)
+                put("engineRpmTimestamp", data.engineRpmTimestamp?.toString() ?: "")
+
+                // Fuel level
+                if (data.fuelLevel == null) issues.nullFields.add("fuelLevel")
+                put("fuelLevel", data.fuelLevel ?: 0.0)
+                put("fuelLevelTimestamp", data.fuelLevelTimestamp?.toString() ?: "")
+
+                // Additional OBD parameters (from protocol 1+ data)
+                // Note: These properties are not available in the current geometris library version.
+                // Marked in CrashlyticsHelper.UNSUPPORTED_FIELDS so they're excluded from anomaly
+                // reporting (they're expected-missing, not a bug) — uncomment per-field when the
+                // library adds support.
+                try {
+                    CrashlyticsHelper.UNSUPPORTED_FIELDS.forEach { issues.nullFields.add(it) }
+
+                    // data.coolantTemp?.let { put("coolantTemp", it) }
+                    put("coolantTemp", 0.0)
+                    put("coolantTempTimestamp", "")
+
+                    // data.ecuVoltage?.let { put("ecuVoltage", it) }
+                    put("ecuVoltage", 0.0)
+                    put("ecuVoltageTimestamp", "")
+
+                    // data.throttlePos?.let { put("throttlePos", it) }
+                    put("throttlePos", 0.0)
+                    put("throttlePosTimestamp", "")
+
+                    // data.ambientTemp?.let { put("ambientTemp", it) }
+                    put("ambientTemp", 0.0)
+                    put("ambientTempTimestamp", "")
+
+                    // data.obdMpg?.let { put("obdMpg", it) }
+                    put("obdMpg", 0.0)
+                    put("obdTripMpg", 0.0)
+                    put("obdInstantMpg", 0.0)
+
+                    // data.milStatus?.let { put("milStatus", it) }
+                    put("milStatus", false)
+
+                    // data.dtcCount?.let { put("dtcCount", it) }
+                    put("dtcCount", 0)
+
+                    // data.regenSwitchStatus?.let { put("regenSwitchStatus", it) }
+                    put("regenSwitchStatus", false)
+                } catch (e: Exception) {
+                    issues.exceptions.add("unsupported_fields" to e)
+                }
+
+                // GPS location
+                if (data.latitude == null) issues.nullFields.add("latitude")
+                if (data.longitude == null) issues.nullFields.add("longitude")
+                put("latitude", data.latitude ?: 0.0)
+                put("longitude", data.longitude ?: 0.0)
+                put("gpsHeading", data.gpsHeading ?: 0.0)
+                data.gpsTime?.let { put("gpsTime", it) } ?: issues.nullFields.add("gpsTime")
+
+                // General timestamp
+                put("timestamp", data.timeStamp?.toString() ?: "")
+                if (data.timeStamp == null) issues.nullFields.add("timestamp")
+
+                // Unidentified events
+                data.totalUdrvEvents?.let { put("totalUdrvEvents", it) }
+
+                // Unidentified events array (if available)
+                try {
+                    data.unidentifiedEventArrayList?.let { eventList ->
+                        val eventsArray = org.json.JSONArray()
+                        eventList.forEach { event ->
+                            val eventObj = JSONObject()
+                            event.timestamp?.let { eventObj.put("timestamp", it) }
+                            event.reason?.let { eventObj.put("reason", it) }
+                            event.engTotalHours?.let { eventObj.put("engineHours", it) }
+                            event.vehicleSpeed?.let { eventObj.put("speed", it) }
+                            event.odometer?.let { eventObj.put("odometer", it) }
+                            event.latitude?.let { eventObj.put("latitude", it) }
+                            event.longitude?.let { eventObj.put("longitude", it) }
+                            event.gpsTimestamp?.let { eventObj.put("gpsTimestamp", it) }
+                            eventsArray.put(eventObj)
+                        }
+                        put("unidentifiedEvents", eventsArray)
                     }
                 } catch (e: Exception) {
-                    // Ignore if unidentified events not available
-                }
-            }
-            put("speed", finalSpeed)
-            put("speedTimestamp", data.vehicleSpeedTimestamp?.toString() ?: "")
-            
-            // Engine RPM
-            put("engineRpm", data.engineRPM ?: 0.0)
-            put("engineRpmTimestamp", data.engineRpmTimestamp?.toString() ?: "")
-            
-            // Fuel level
-            put("fuelLevel", data.fuelLevel ?: 0.0)
-            put("fuelLevelTimestamp", data.fuelLevelTimestamp?.toString() ?: "")
-            
-            // Additional OBD parameters (from protocol 1+ data)
-            // Note: These properties are not available in the current geometris library version
-            // Uncomment when library is updated with these properties
-            try {
-                // Coolant temperature
-                // data.coolantTemp?.let { put("coolantTemp", it) }
-                // data.coolantTempTimestamp?.let { put("coolantTempTimestamp", it.toString()) }
-                put("coolantTemp", 0.0)  // Placeholder - will be populated when library supports it
-                put("coolantTempTimestamp", "")
-                
-                // ECU voltage
-                // data.ecuVoltage?.let { put("ecuVoltage", it) }
-                // data.ecuVoltageTimestamp?.let { put("ecuVoltageTimestamp", it.toString()) }
-                put("ecuVoltage", 0.0)  // Placeholder
-                put("ecuVoltageTimestamp", "")
-                
-                // Throttle position
-                // data.throttlePos?.let { put("throttlePos", it) }
-                // data.throttlePosTimestamp?.let { put("throttlePosTimestamp", it.toString()) }
-                put("throttlePos", 0.0)  // Placeholder
-                put("throttlePosTimestamp", "")
-                
-                // Ambient temperature
-                // data.ambientTemp?.let { put("ambientTemp", it) }
-                // data.ambientTempTimestamp?.let { put("ambientTempTimestamp", it.toString()) }
-                put("ambientTemp", 0.0)  // Placeholder
-                put("ambientTempTimestamp", "")
-                
-                // MPG data
-                // data.obdMpg?.let { put("obdMpg", it) }
-                // data.obdTripMpg?.let { put("obdTripMpg", it) }
-                // data.obdInstantMpg?.let { put("obdInstantMpg", it) }
-                put("obdMpg", 0.0)  // Placeholder
-                put("obdTripMpg", 0.0)  // Placeholder
-                put("obdInstantMpg", 0.0)  // Placeholder
-                
-                // MIL (Malfunction Indicator Lamp) status
-                // data.milStatus?.let { put("milStatus", it) }
-                put("milStatus", false)  // Placeholder
-                
-                // DTC (Diagnostic Trouble Code) count
-                // data.dtcCount?.let { put("dtcCount", it) }
-                put("dtcCount", 0)  // Placeholder
-                
-                // Regeneration switch status
-                // data.regenSwitchStatus?.let { put("regenSwitchStatus", it) }
-                put("regenSwitchStatus", false)  // Placeholder
-            } catch (e: Exception) {
-                // Some fields may not be available in older protocol versions
-            }
-            
-            // GPS location
-            put("latitude", data.latitude ?: 0.0)
-            put("longitude", data.longitude ?: 0.0)
-            put("gpsHeading", data.gpsHeading ?: 0.0)
-            data.gpsTime?.let { put("gpsTime", it) }
-            
-            // General timestamp
-            put("timestamp", data.timeStamp?.toString() ?: "")
-            
-            // Unidentified events
-            data.totalUdrvEvents?.let { put("totalUdrvEvents", it) }
-            
-            // Unidentified events array (if available)
-            try {
-                data.unidentifiedEventArrayList?.let { eventList ->
-                    val eventsArray = org.json.JSONArray()
-                    eventList.forEach { event ->
-                        val eventObj = JSONObject()
-                        event.timestamp?.let { eventObj.put("timestamp", it) }
-                        event.reason?.let { eventObj.put("reason", it) }
-                        event.engTotalHours?.let { eventObj.put("engineHours", it) }
-                        event.vehicleSpeed?.let { eventObj.put("speed", it) }
-                        event.odometer?.let { eventObj.put("odometer", it) }
-                        event.latitude?.let { eventObj.put("latitude", it) }
-                        event.longitude?.let { eventObj.put("longitude", it) }
-                        event.gpsTimestamp?.let { eventObj.put("gpsTimestamp", it) }
-                        eventsArray.put(eventObj)
-                    }
-                    put("unidentifiedEvents", eventsArray)
+                    issues.exceptions.add("unidentifiedEvents" to e)
                 }
             } catch (e: Exception) {
-                // Unidentified events may not be available in all protocol versions
+                issues.exceptions.add("geoDataToJson_top_level" to e)
             }
-        }.toString()
+        }
+
+        CrashlyticsHelper.reportFieldIssues(issues, json.toString(), savedDeviceAddress, "service")
+        return json.toString()
     }
 
     // -------------------------------------------------------------------------
