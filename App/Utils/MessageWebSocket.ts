@@ -6,147 +6,42 @@ import {
     WsReceiveType,
     WsTotalMsg
 } from '../Model/Message';
-import { MESSAGE_WEBSOCKET_URL } from './EnvVariables';
+import { realtimeSocket } from '../core/realtime/realtimeSocket';
 
-const FALLBACK_WEBSOCKET_URL = 'wss://lms.learningink.com/socket';
-type MessageHandler = (payload: Record<string, unknown>) => void;
-
-const getWebSocketUrl = (): string => {
-    return MESSAGE_WEBSOCKET_URL || FALLBACK_WEBSOCKET_URL;
-};
-
-function getWebSocketErrorMessage(error: unknown): string {
-    if (error && typeof error === 'object' && 'message' in error) {
-        return String((error as { message?: unknown }).message ?? '');
-    }
-    return String(error ?? 'Unknown WebSocket error');
-}
-
-function isPermanentWebSocketFailure(message: string): boolean {
-    return /404|403|401|500|502|503/i.test(message);
-}
-
+/**
+ * Chat/messaging realtime API — thin wrapper around the single shared
+ * connection (core/realtime/realtimeSocket.ts). This used to open its own
+ * WebSocket; now it shares the exact same connection that force-logout and
+ * duty-status events ride on, since it's genuinely one server.
+ *
+ * Public API is intentionally unchanged from the previous version so
+ * nothing in the Message screens needed to change.
+ */
 class MessageWebSocket {
-    private ws: WebSocket | null = null;
-    private handlers = new Map<WsReceiveType | 'open' | 'close' | 'error', Set<MessageHandler>>();
-    private connectPromise: Promise<void> | null = null;
-    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    private shouldReconnect = false;
+    private client = realtimeSocket;
 
     connect(): Promise<void> {
-        if (this.ws?.readyState === WebSocket.OPEN) {
-            return Promise.resolve();
-        }
-
-        if (this.connectPromise) {
-            return this.connectPromise;
-        }
-
-        this.shouldReconnect = true;
-
-        this.connectPromise = new Promise((resolve, reject) => {
-            const url = getWebSocketUrl();
-            let opened = false;
-            const socket = new WebSocket(url);
-            this.ws = socket;
-
-            socket.onopen = () => {
-                opened = true;
-                this.connectPromise = null;
-                this.emit('open', {});
-                resolve();
-            };
-
-            socket.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(String(event.data));
-                    if (data?.sendType) {
-                        this.emit(data.sendType as WsReceiveType, data);
-                    }
-                } catch (error) {
-                    console.warn('MessageWebSocket parse error', error);
-                }
-            };
-
-            socket.onerror = (error) => {
-                const message = getWebSocketErrorMessage(error);
-                if (isPermanentWebSocketFailure(message)) {
-                    this.shouldReconnect = false;
-                }
-
-                console.warn('MessageWebSocket connection error', {
-                    url,
-                    message
-                });
-
-                this.connectPromise = null;
-                this.emit('error', { error, url, message });
-                reject(new Error(message || `WebSocket failed to connect (${url})`));
-            };
-
-            socket.onclose = (event) => {
-                this.connectPromise = null;
-                this.ws = null;
-                this.emit('close', { code: event.code, reason: event.reason });
-
-                if (!opened && isPermanentWebSocketFailure(event.reason ?? '')) {
-                    this.shouldReconnect = false;
-                }
-
-                if (this.shouldReconnect) {
-                    this.reconnectTimer = setTimeout(() => {
-                        this.connect().catch(() => {});
-                    }, 3000);
-                }
-            };
-        });
-
-        return this.connectPromise;
+        return this.client.connect();
     }
 
     disconnect() {
-        this.shouldReconnect = false;
-        if (this.reconnectTimer) {
-            clearTimeout(this.reconnectTimer);
-            this.reconnectTimer = null;
-        }
-        if (this.ws) {
-            this.ws.close();
-            this.ws = null;
-        }
-        this.connectPromise = null;
+        this.client.disconnect();
     }
 
-    on(event: WsReceiveType | 'open' | 'close' | 'error', handler: MessageHandler) {
-        if (!this.handlers.has(event)) {
-            this.handlers.set(event, new Set());
-        }
-        this.handlers.get(event)!.add(handler);
-        return () => this.off(event, handler);
+    on(event: WsReceiveType | 'open' | 'close' | 'error', handler: (payload: Record<string, unknown>) => void) {
+        return this.client.on(event, handler);
     }
 
-    off(event: WsReceiveType | 'open' | 'close' | 'error', handler: MessageHandler) {
-        this.handlers.get(event)?.delete(handler);
-    }
-
-    private emit(event: WsReceiveType | 'open' | 'close' | 'error', payload: Record<string, unknown>) {
-        this.handlers.get(event)?.forEach((handler) => handler(payload));
-    }
-
-    private send(payload: Record<string, unknown>) {
-        if (this.ws?.readyState !== WebSocket.OPEN) {
-            throw new Error('WebSocket is not connected');
-        }
-        this.ws.send(JSON.stringify(payload));
+    off(event: WsReceiveType | 'open' | 'close' | 'error', handler: (payload: Record<string, unknown>) => void) {
+        this.client.off(event, handler);
     }
 
     async ensureConnected() {
-        if (this.ws?.readyState === WebSocket.OPEN) return;
-        await this.connect();
+        await this.client.ensureConnected();
     }
 
     authenticateChat(senderId: number, receiverId: number, isGroup: boolean) {
-        this.send({
+        this.client.send({
             sendType: 'auth',
             senderId,
             recieverId: receiverId,
@@ -155,7 +50,7 @@ class MessageWebSocket {
     }
 
     fetchUserInfo(senderId: number, masterId: number) {
-        this.send({
+        this.client.send({
             sendType: 'userInfo',
             senderId,
             masterId
@@ -163,7 +58,7 @@ class MessageWebSocket {
     }
 
     fetchTotalMessages(senderId: number, receiverId: number) {
-        this.send({
+        this.client.send({
             sendType: 'totalMsg',
             senderId,
             receiverId
@@ -178,7 +73,7 @@ class MessageWebSocket {
         ids: number;
         userSelected: number[];
     }) {
-        this.send({
+        this.client.send({
             sendType: 'group_create',
             senderId: params.senderId,
             groupName: params.groupName,
@@ -197,7 +92,7 @@ class MessageWebSocket {
         masterId: number;
         masterCompanyId: number;
     }) {
-        this.send({
+        this.client.send({
             sendType: 'message',
             type: 0,
             sender_id: params.senderId,
@@ -218,7 +113,7 @@ class MessageWebSocket {
         masterId: number;
         masterCompanyId: number;
     }) {
-        this.send({
+        this.client.send({
             sendType: 'message',
             type: 1,
             sender_id: params.senderId,
@@ -237,7 +132,7 @@ class MessageWebSocket {
         isGroup: boolean;
         userId?: number;
     }) {
-        this.send({
+        this.client.send({
             sendType: 'update_read_status',
             senderId: params.senderId,
             recieverId: params.receiverId,
@@ -252,32 +147,7 @@ class MessageWebSocket {
         sendFn: () => void,
         timeoutMs = 8000
     ): Promise<Record<string, unknown>[]> {
-        const types = Array.isArray(sendType) ? sendType : [sendType];
-
-        return new Promise((resolve) => {
-            const collected: Record<string, unknown>[] = [];
-            let settled = false;
-
-            const finish = () => {
-                if (settled) return;
-                settled = true;
-                clearTimeout(timer);
-                unsubscribers.forEach((unsub) => unsub());
-                resolve(collected);
-            };
-
-            const unsubscribers = types.map((type) =>
-                this.on(type, (payload) => {
-                    collected.push(payload);
-                })
-            );
-
-            const timer = setTimeout(finish, timeoutMs);
-
-            this.ensureConnected()
-                .then(sendFn)
-                .catch(() => finish());
-        });
+        return this.client.waitForMessages(sendType, sendFn, timeoutMs);
     }
 }
 

@@ -38,7 +38,8 @@ async function teardownSession(): Promise<void> {
         messageWebSocket.disconnect();
         await GeoDataBackgroundService.stop();
     } catch (error) {
-        if (__DEV__) {
+        //if (__DEV__) 
+        {
             console.warn('SessionManager.teardownSession failed:', error);
         }
     } finally {

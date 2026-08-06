@@ -9,6 +9,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import SessionManager from './App/core/session/SessionManager';
 import { performLogout } from './App/core/hooks/useSession';
 import { useRealtime } from './App/core/hooks/useRealtime';
+import { useDashboard } from './App/core/hooks/useDashboard';
+import { setDashboardHos } from './App/Redux/reducer/Dashboard';
 import AppStack from './App/Navigation/AppStack';
 import NavigationService from './App/Services/Navigation';
 import AuthStack from './App/Navigation/AuthStack';
@@ -34,6 +36,8 @@ const App = () => {
     useTheme();
 
     const { loginStatus, userData } = useSelector((state) => state.User);
+    const dashboardHos = useSelector((state) => state.Dashboard.hos);
+    const { refreshHos } = useDashboard();
 
     const [isLoading, setIsLoading] = useState(true);
     const [isdark, setIsDark] = useState(false);
@@ -55,10 +59,42 @@ const App = () => {
         );
     }, [dispatch]);
 
+    // Instant duty-status update from a remote source (dispatcher edit,
+    // co-driver action, ELD auto-detection, etc). We apply the new label
+    // optimistically for instant feedback, then refetch in the background
+    // since drive/shift/cycle time remaining also change whenever duty
+    // status changes, not just the label.
+    const handleDutyStatusChanged = useCallback(
+        (payload) => {
+            logger.log(
+                `Realtime duty status event: id=${payload.latestLogId ?? 'n/a'} label=${payload.latestLog ?? 'n/a'}`
+            );
+            if (payload.latestLogId != null || payload.latestLog) {
+                dispatch(
+                    setDashboardHos({
+                        timeLeftInDrive: '00:00',
+                        timeLeftInShift: '00:00',
+                        timeLeftInCycle: '00:00',
+                        timeLeftInBreak: '00:00',
+                        timeInCurrentStatus: '00:00',
+                        ...dashboardHos,
+                        ...(payload.latestLogId != null
+                            ? { latestLogId: payload.latestLogId }
+                            : {}),
+                        ...(payload.latestLog ? { latestLog: payload.latestLog } : {})
+                    })
+                );
+            }
+            refreshHos().catch(() => {});
+        },
+        [dashboardHos, dispatch, refreshHos]
+    );
+
     const { disconnect: disconnectRealtime } = useRealtime({
         loginStatus,
         userId: userData?.id ?? userData?.driver_id ?? null,
-        onForceLogout: handleForceLogout
+        onForceLogout: handleForceLogout,
+        onDutyStatusChanged: handleDutyStatusChanged
     });
     // Todo: used in crashlytics. We have enabled the crashlytics for testing
     useEffect(() => {
