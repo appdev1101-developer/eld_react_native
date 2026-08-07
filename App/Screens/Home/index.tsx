@@ -42,75 +42,8 @@ import { requireOnline } from '../../core/network/requireOnline';
 import { showError } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { THEME, GRADIENT_HEADER } from '../../Constants/Theme';
+import { StatusDataType, AllStatusData } from '../../core/shift_status';
 
-export type StatusDataType = {
-    id: number;
-    icon: ImageSourcePropType;
-    name: string;
-    description?: string;
-    overlayColor?: ColorValue;
-    arcColors?: [ColorValue, ColorValue, ColorValue];
-    selectedArc?: 1 | 2;
-    apiStatus:
-        | 'Off duty'
-        | 'Sleeping Berth'
-        | 'Driving'
-        | 'ON duty'
-        | 'Personal Conveyance'
-        | 'Yard moves';
-};
-
-const AllStatusData: Array<StatusDataType> = [
-    {
-        id: 3,
-        icon: require('../../Assets/Icons/drive.png'),
-        name: 'Drive',
-        // description: '11-Hour Driving Limit',
-        overlayColor: '#72f575',
-        selectedArc: 1,
-        apiStatus: 'Driving'
-    },
-    {
-        id: 6,
-        icon: require('../../Assets/Icons/YardMove.png'),
-        name: 'Yard Move',
-        // description: 'Moving Nearby',
-        overlayColor: '#eaf5a3',
-        selectedArc: 2,
-        apiStatus: 'Yard moves'
-    },
-    {
-        id: 5,
-        icon: require('../../Assets/Icons/PersonalUse.png'),
-        name: 'Personal use',
-        arcColors: ['#6c746e', '#acada5', '#494b4f'],
-        apiStatus: 'Personal Conveyance'
-    },
-    {
-        id: 4,
-        icon: require('../../Assets/Icons/Break.png'),
-        name: 'ON Duty',
-        // description: 'Rest please!',
-        arcColors: ['#f3c646', '#f5a841', '#b19359'],
-        apiStatus: 'ON duty'
-    },
-    {
-        id: 2,
-        icon: require('../../Assets/Icons/Sleeper.png'),
-        name: 'Sleeper',
-        // description: 'Zzz!',
-        arcColors: ['#aeaeae', '#e6e4e1', '#818181'],
-        apiStatus: 'Sleeping Berth'
-    },
-    {
-        id: 1,
-        icon: require('../../Assets/Icons/OffDuty.png'),
-        name: 'Off duty',
-        // description: 'for Personal Work',
-        arcColors: ['#ee4e34', '#f17c3a', '#ed393e'],
-        apiStatus: 'Off duty'
-    }
-];
 
 const { width } = Dimensions.get('screen');
 const Home = () => {
@@ -143,8 +76,8 @@ const Home = () => {
     const isFirstFocus = useRef(true);
 
     const currentStatus = useMemo(
-        () => AllStatusData.find((item) => item.apiStatus === hos?.latestLog),
-        [hos?.latestLog]
+        () => AllStatusData.find((item) => item.shift_status_id === hos?.shift_id),
+        [hos?.shift_id]
     );
 
     useFocusEffect(
@@ -182,7 +115,7 @@ const Home = () => {
             return;
         }
         dashboardApi
-            .changeDutyStatusLegacy(""+data.id, ""+coords.lat, ""+coords.lng, remarks)
+            .changeDutyStatusLegacy(""+data.shift_status_id, ""+coords.lat, ""+coords.lng, remarks)
             .then((result) => {
                 if (isLegacySuccess(result)) 
                 {

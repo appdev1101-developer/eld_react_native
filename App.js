@@ -27,6 +27,7 @@ import NetworkProvider from './App/Components/UI/NetworkProvider';
 // Todo: used in crashlytics
 import { ErrorBoundary } from './App/Components/ErrorBoundary';
 import { initCrashlytics, identifyUser, setContext, logger } from './App/core/logger';
+import { AllStatusData } from './App/core/shift_status/status.data';
  
 
 const Stack = createStackNavigator();
@@ -67,9 +68,9 @@ const App = () => {
     const handleDutyStatusChanged = useCallback(
         (payload) => {
             logger.log(
-                `Realtime duty status event: id=${payload.latestLogId ?? 'n/a'} label=${payload.latestLog ?? 'n/a'}`
+                `Realtime duty status event: id=${payload.shift_id ?? 'n/a'} label=${payload.shift_id ?? 'n/a'}`
             );
-            if (payload.latestLogId != null || payload.latestLog) {
+            if (payload.shift_id != null || payload.shift_id) {
                 dispatch(
                     setDashboardHos({
                         timeLeftInDrive: '00:00',
@@ -78,10 +79,10 @@ const App = () => {
                         timeLeftInBreak: '00:00',
                         timeInCurrentStatus: '00:00',
                         ...dashboardHos,
-                        ...(payload.latestLogId != null
-                            ? { latestLogId: payload.latestLogId }
+                        ...(payload.shift_id != null
+                            ? { shift_id: payload.shift_id }
                             : {}),
-                        ...(payload.latestLog ? { latestLog: payload.latestLog } : {})
+                        ...(payload.shift_id ? { shift_id: payload.shift_id } : {})
                     })
                 );
             }

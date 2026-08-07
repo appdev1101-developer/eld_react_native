@@ -6,7 +6,7 @@ export interface HosSummary {
     timeLeftInShift: string;
     timeLeftInCycle: string;
     timeLeftInBreak: string;
-    latestLog: string;
+    shift_id: number;
     timeInCurrentStatus: string;
 }
 

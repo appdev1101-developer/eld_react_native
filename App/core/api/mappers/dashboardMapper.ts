@@ -10,13 +10,26 @@ function asString(value: unknown, fallback = ''): string {
     return typeof value === 'string' ? value : fallback;
 }
 
+function asNumber(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return fallback;
+}
+
 export function mapHosSummary(raw: Record<string, unknown>): HosSummary {
     return {
         timeLeftInDrive: asString(raw.time_left_in_drive, '00:00:00'),
         timeLeftInShift: asString(raw.time_left_in_shift, '00:00:00'),
         timeLeftInCycle: asString(raw.time_left_in_cycle, '00:00:00'),
         timeLeftInBreak: asString(raw.time_left_in_break, '00:00:00'),
-        latestLog: asString(raw.latest_log),
+        shift_id: asNumber(raw.shift_id, 0),
         timeInCurrentStatus: asString(raw.time_in_current_status)
     };
 }

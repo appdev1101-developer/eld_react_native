@@ -3,8 +3,8 @@ import { realtimeSocket } from '../realtime/realtimeSocket';
 import { DUTY_STATUS_CHANGED_EVENT, FORCE_LOGOUT_EVENT } from '../realtime/socketConfig';
 
 export type DutyStatusChangedPayload = {
-    latestLogId?: number;
-    latestLog?: string;
+    // latestLogId?: number;
+    // latestLog?: string;
     shiftId?: string | number;
     changedAt?: string;
 };

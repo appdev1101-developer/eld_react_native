@@ -15,7 +15,8 @@ export const API = {
         fcmToken: () => 'user/device/notify'
     },
     dashboard: {
-        data: () => 'dashboard/mobile/data',
+        data: () => 'new/dashboard/mobile/data/index',
+        //data: () => 'dashboard/mobile/data',
         // changeDutyStatus: (
         //     id: number,
         //     lat: number,
