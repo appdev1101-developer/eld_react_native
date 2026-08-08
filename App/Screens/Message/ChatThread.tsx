@@ -7,6 +7,7 @@ import {
     Pressable,
     StyleSheet,
     TextInput,
+    TextStyle,
     View
 } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -205,7 +206,9 @@ const ChatThread = () => {
                             style={styles.messageImage}
                         />
                     ) : null}
-                    {item.text ? (
+
+                    {/* {ToDo: Error occured need to check while I will work on messaging} */}
+                    {/* {item.text ? (
                         <Text
                             style={[
                                 styles.messageText,
@@ -226,7 +229,7 @@ const ChatThread = () => {
                         ]}
                     >
                         {item.time}
-                    </Text>
+                    </Text> */}
                 </View>
             </View>
         </View>
@@ -477,8 +480,8 @@ const styles = StyleSheet.create({
     },
     messageText: {
         fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(14),
-        lineHeight: moderateScale(20)
+        fontSize: moderateScale(14) as number,
+        lineHeight: moderateScale(20) as number
     },
     messageTextMine: {
         color: '#fff'

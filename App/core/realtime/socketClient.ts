@@ -18,6 +18,8 @@
  * one place to fix bugs — used by both.
  */
 
+import { logger } from "../logger";
+
 export type SocketEventName<TMessageType extends string> =
     | TMessageType
     | 'open'
@@ -86,6 +88,7 @@ export class SocketClient<TMessageType extends string> {
             socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(String(event.data));
+                    logger.log("<<<<<<< Socket.onmessage Data  >>>>>>>>>>> "+data)
                     const type = data?.[this.options.typeField];
                     if (type) {
                         this.emit(type as TMessageType, data);
@@ -99,6 +102,7 @@ export class SocketClient<TMessageType extends string> {
 
             socket.onerror = (error) => {
                 const message = getSocketErrorMessage(error);
+                logger.log("<<<<<<< Socket.onerror Data  >>>>>>>>>>> "+message)
                 if (isPermanentFailure(message)) {
                     this.shouldReconnect = false;
                 }

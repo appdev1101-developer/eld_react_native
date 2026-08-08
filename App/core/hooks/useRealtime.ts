@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { realtimeSocket } from '../realtime/realtimeSocket';
 import { DUTY_STATUS_CHANGED_EVENT, FORCE_LOGOUT_EVENT } from '../realtime/socketConfig';
+import { logger } from '../logger';
 
 export type DutyStatusChangedPayload = {
     // latestLogId?: number;
@@ -27,31 +28,22 @@ function parseForceLogoutEvent(payload: Record<string, unknown>): boolean {
 
 function parseDutyStatusChangedEvent(
     payload: Record<string, unknown>
-): DutyStatusChangedPayload | null {
+): DutyStatusChangedPayload {
     try {
-        const data = (payload.data ?? {}) as {
-            latest_log_id?: number;
-            latestLogId?: number;
-            latest_log?: string;
-            latestLog?: string;
-            shift_id?: string | number;
-            changed_at?: string;
-        };
-
-        const latestLogId = data.latestLogId ?? data.latest_log_id;
-        const latestLog = data.latestLog ?? data.latest_log;
-        if (latestLogId == null && !latestLog) {
-            return null;
-        }
-
-        return {
-            latestLogId,
-            latestLog,
-            shiftId: data.shift_id,
-            changedAt: data.changed_at
-        };
+        const data = payload as {
+        shift_id?: string | number;
+        changed_at?: string;
+    };
+ 
+    // No fields beyond sendType are guaranteed present — if the server
+    // sends this as a bare signal (no status data attached), the caller
+    // still gets called so it can fall back to a plain refetch.
+    return {
+        shiftId: data.shift_id,
+        changedAt: data.changed_at
+     };
     } catch {
-        return null;
+        return {};
     }
 }
 
@@ -88,18 +80,18 @@ export function useRealtime({
 
     useEffect(() => {
         const unsubscribeForceLogout = realtimeSocket.on(FORCE_LOGOUT_EVENT, (payload) => {
-            if (parseForceLogoutEvent(payload)) {
-                void onForceLogoutRef.current();
-            }
+            // The connection is already scoped to this user via the auth
+            // token in the handshake, so arrival here is itself the
+            // signal — driverId is logged for the audit trail, not used
+            // as a filter (don't second-guess a server-issued logout).
+            logger.log(`Force logout received (driverId=${payload.driverId ?? 'n/a'})`);
+            void onForceLogoutRef.current();
         });
 
         const unsubscribeDutyStatus = realtimeSocket.on(DUTY_STATUS_CHANGED_EVENT, (payload) => {
-            const parsed = parseDutyStatusChangedEvent(payload);
-            if (parsed) {
-                onDutyStatusChangedRef.current?.(parsed);
-            }
+            onDutyStatusChangedRef.current?.(parseDutyStatusChangedEvent(payload));
         });
-
+ 
         return () => {
             unsubscribeForceLogout();
             unsubscribeDutyStatus();

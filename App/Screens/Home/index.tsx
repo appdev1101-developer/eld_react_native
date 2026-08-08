@@ -1,9 +1,6 @@
 import {
     ActivityIndicator,
-    ColorValue,
     Dimensions,
-    Image,
-    ImageSourcePropType,
     RefreshControl,
     ScrollView,
     StyleSheet,

@@ -21,10 +21,16 @@ export function getRealtimeSocketUrl(): string {
  * shape below against whatever the server actually emits/expects — these
  * are my best-guess contract, not a confirmed spec.
  */
-export const IDENTIFY_SEND_TYPE = 'identify';
+export const AUTH_SEND_TYPE = 'auth';
+export const AUTH_SUCCESS_EVENT = 'auth_success';
+export const AUTH_FAILED_EVENT = 'auth_failed';
+ 
+/** -> nothing to send; these arrive unprompted once the connection is authenticated. */
 export const FORCE_LOGOUT_EVENT = 'force_logout';
 export const DUTY_STATUS_CHANGED_EVENT = 'duty_status_changed';
 
 export type SessionMessageType =
+    | typeof AUTH_SUCCESS_EVENT
+    | typeof AUTH_FAILED_EVENT
     | typeof FORCE_LOGOUT_EVENT
     | typeof DUTY_STATUS_CHANGED_EVENT;
