@@ -5,7 +5,7 @@ import { ApprovalRequestData, HosSummary } from '../api/types/dashboard';
 export type HomeCachedData = {
     userInfo: UserInfoDataType | null;
     hos: HosSummary | null;
-    config: ConfigResponse | null;
+    //config: ConfigResponse | null;
     unsignedLogCount: number;
     unsignedLogs?: Array<unknown>;
     approvals: ApprovalRequestData | null;

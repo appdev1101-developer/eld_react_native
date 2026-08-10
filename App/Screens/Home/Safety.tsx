@@ -8,13 +8,14 @@ import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import HomeMenuCard from '../../Components/Home/HomeMenuCard';
 import NavigationService from '../../Services/Navigation';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../Redux/store';
+//import { useSelector } from 'react-redux';
+//import { RootState } from '../../Redux/store';
 import { GRADIENT_HEADER } from '../../Constants/Theme';
+import { useAppConfig } from '../../core/hooks/useAppConfig';
 
 const Safety = () => {
-    const { configData } = useSelector((state: RootState) => state.User);
-
+    //const { configData } = useSelector((state: RootState) => state.User);
+    const { configData } = useAppConfig();
     const safetyData = useMemo(
         () => configData?.safety_type ?? [],
         [configData?.safety_type]

@@ -15,7 +15,7 @@ import {
     setDashboardLoading,
     setDashboardRefreshing
 } from '../../Redux/reducer/Dashboard';
-import { setConfigData, setUserInfo } from '../../Redux/reducer/User';
+import {setUserInfo } from '../../Redux/reducer/User';
 
 export function formatHosTimes(hos: HosSummary | null) {
     const format = (value: string) => value.split(':').slice(0, 2).join(':');
@@ -56,9 +56,6 @@ export function useDashboard() {
             if (cached.userInfo) {
                 dispatch(setUserInfo(cached.userInfo));
             }
-            if (cached.config) {
-                dispatch(setConfigData(cached.config));
-            }
             applyBundle({
                 hos: cached.hos,
                 unsignedLogCount: cached.unsignedLogCount,
@@ -93,33 +90,25 @@ export function useDashboard() {
                 dispatch(setDashboardLoading(true));
             }
 
+            let nextUserInfo = null;
+            let nextHos: HosSummary | null = null;
+            let unsignedLogCount = 0;
+            let unsignedLogsList: Array<unknown> = [];
+            let approvals: ApprovalRequestData = {
+                coDriver: [],
+                addLog: [],
+                editLog: [],
+                reassignLog: [],
+                unidentifiedDriving: []
+            };
+
             try {
-                const [unsignedLogsRes, dashboardData, configData,approvalData ] =
-                    await Promise.all([
-                        dashboardApi.getUnsignedLogs(),
-                        dashboardApi.getData(),
-                        //ToDo: Commented beacuse it is used for localization
-                        dashboardApi.getConfig(),
-                        dashboardApi.getApprovalRequests()
-                    ]);
-
-                let nextUserInfo = null;
-                let nextHos: HosSummary | null = null;
-                let nextConfig = null;
-                let unsignedLogCount = 0;
-                let unsignedLogsList: Array<unknown> = [];
-                let approvals: ApprovalRequestData = {
-                    coDriver: [],
-                    addLog: [],
-                    editLog: [],
-                    reassignLog: [],
-                    unidentifiedDriving: []
-                };
-
-                if (isSuccess(unsignedLogsRes)) {
-                    unsignedLogCount = unsignedLogsRes.data.length;
-                    unsignedLogsList = unsignedLogsRes.data;
-                }
+                // Tier 1 — the actual dashboard content (duty status, drive/
+                // shift/cycle time). This is the only thing worth blocking
+                // the loading spinner on: it's the safety-critical number a
+                // driver opens the app to see, and it shouldn't wait behind
+                // three unrelated, lower-priority requests.
+                const dashboardData = await dashboardApi.getData();
 
                 if (isSuccess(dashboardData)) {
                     nextUserInfo = dashboardData.data.userInfo;
@@ -129,9 +118,29 @@ export function useDashboard() {
                     }
                 }
 
-                if (isSuccess(configData)) {
-                    nextConfig = configData.data;
-                    dispatch(setConfigData(configData.data));
+                applyBundle({
+                    hos: nextHos,
+                    unsignedLogCount,
+                    unsignedLogs: unsignedLogsList,
+                    approvals
+                });
+
+                // The primary content is ready — stop blocking the screen.
+                // Badge counts below hydrate in the background from here.
+                dispatch(setDashboardLoading(false));
+
+                // Tier 2 — badge counts shown on menu cards (unsigned logs,
+                // pending approvals). Genuinely independent of each other
+                // and of tier 1, so they still run in parallel — they just
+                // no longer hold up the primary content while doing it.
+                const [unsignedLogsRes, approvalData] = await Promise.all([
+                    dashboardApi.getUnsignedLogs(),
+                    dashboardApi.getApprovalRequests()
+                ]);
+
+                if (isSuccess(unsignedLogsRes)) {
+                    unsignedLogCount = unsignedLogsRes.data.length;
+                    unsignedLogsList = unsignedLogsRes.data;
                 }
 
                 if (isSuccess(approvalData)) {
@@ -141,7 +150,11 @@ export function useDashboard() {
                 setHomeCache({
                     userInfo: nextUserInfo,
                     hos: nextHos,
-                    config: nextConfig,
+                    // Config is intentionally not part of this cache/bundle
+                    // anymore — see useAppConfig(), it's fetched only by the
+                    // screens that actually read it (Compliance, Settings,
+                    // Safety), never by the dashboard itself.
+                    //config: getHomeCache()?.config ?? null,
                     unsignedLogCount,
                     unsignedLogs: unsignedLogsList,
                     approvals
@@ -157,7 +170,6 @@ export function useDashboard() {
                 return {
                     userInfo: nextUserInfo,
                     hos: nextHos,
-                    config: nextConfig,
                     unsignedLogCount,
                     unsignedLogs: unsignedLogsList,
                     approvals

@@ -4,8 +4,9 @@ import { moderateScale } from '../../Constants/PixelRatio';
 import { CheckBox, Icon } from 'react-native-basic-elements';
 import moment from 'moment-timezone';
 import { FONTS } from '../../Constants/Fonts';
-import { useSelector } from 'react-redux';
+// /import { useSelector } from 'react-redux';
 import { RootState } from '../../Redux/store';
+import { useAppConfig } from '../../core/hooks/useAppConfig';
 
 type Props = {
     date: string;
@@ -14,7 +15,8 @@ type Props = {
 };
 
 const ActivityCard: React.FC<Props> = ({ date, totalShiftTime, onPress }) => {
-    const { configData } = useSelector((state: RootState) => state.User);
+    //const { configData } = useSelector((state: RootState) => state.User);
+    const { configData } = useAppConfig();
 
     return (
         <Pressable

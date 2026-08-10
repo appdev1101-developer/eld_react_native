@@ -33,6 +33,7 @@ import { requireOnline } from '../../core/network/requireOnline';
 import { showError, showToast } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { email as validateEmail, firstInvalid, required } from '../../Utils/validators';
+import { useAppConfig } from '../../core/hooks/useAppConfig';
 
 const SETTING_ITEMS: Array<{
     title: string;
@@ -69,9 +70,10 @@ const AccountSetting = ({
     const route = useRoute<any>();
     const dispatch = useDispatch();
     const { updateAccount: persistAccount } = useSession();
-    const { userData, userInfo, configData } = useSelector(
+    const { userData, userInfo } = useSelector(
         (state: RootState) => state.User
     );
+    const { configData } = useAppConfig();
     const colors = useTheme();
     const headerTitle =
         headerTitleProp ?? route.params?.headerTitle ?? 'Account Settings';
