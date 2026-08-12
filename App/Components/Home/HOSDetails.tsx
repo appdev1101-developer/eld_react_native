@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     },
     numeral: {
         fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(30),
+        fontSize: moderateScale(26),
         color: THEME.colors.textPrimary,
         textAlign: 'center',
         letterSpacing: -0.5

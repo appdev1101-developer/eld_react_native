@@ -24,13 +24,23 @@ export function getRealtimeSocketUrl(): string {
 export const AUTH_SEND_TYPE = 'auth';
 export const AUTH_SUCCESS_EVENT = 'auth_success';
 export const AUTH_FAILED_EVENT = 'auth_failed';
+/**
+ * Sent by the server if a previously-authenticated connection's token
+ * expires mid-session (distinct from auth_failed, which is the initial
+ * handshake being rejected). Treated the same as a server-issued force
+ * logout — see useRealtime.ts.
+ */
+export const AUTH_EXPIRED_EVENT = 'auth_expired';
+export const AUTH_MISMATCH_EVENT = 'auth_mismatch';
  
 /** -> nothing to send; these arrive unprompted once the connection is authenticated. */
-export const FORCE_LOGOUT_EVENT = 'force_logout';
-export const DUTY_STATUS_CHANGED_EVENT = 'duty_status_changed';
+export const FORCE_LOGOUT_EVENT = 'user-force-logout';
+export const DUTY_STATUS_CHANGED_EVENT = 'change-duty-status';
 
 export type SessionMessageType =
     | typeof AUTH_SUCCESS_EVENT
     | typeof AUTH_FAILED_EVENT
+    | typeof AUTH_EXPIRED_EVENT
+    | typeof AUTH_MISMATCH_EVENT
     | typeof FORCE_LOGOUT_EVENT
     | typeof DUTY_STATUS_CHANGED_EVENT;

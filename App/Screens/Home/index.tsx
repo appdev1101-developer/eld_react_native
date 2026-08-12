@@ -1,6 +1,7 @@
 import {
     ActivityIndicator,
     Dimensions,
+    Pressable,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -24,6 +25,8 @@ import { RootState } from '../../Redux/store';
 import { dashboardApi } from '../../core/api/services/dashboardApi';
 import { isLegacySuccess } from '../../core/api/types/common';
 import { useDashboard } from '../../core/hooks/useDashboard';
+// import { realtimeSocket } from '../../core/realtime/realtimeSocket';
+// import { DUTY_STATUS_CHANGED_EVENT } from '../../core/realtime/socketConfig';
 import {
     getDutyStatusCoordinates,
     isDutyStatusLocationValid
@@ -150,6 +153,23 @@ const Home = () => {
         );
     }
 
+    ////////////////////// DEV only to test the update duty status received from websocket ///////////////////
+    // const devTestIndex = useRef(0);
+    // const simulateDutyStatusEvent = () => {
+    //     const devTestPayload=[
+    //     {sendType:DUTY_STATUS_CHANGED_EVENT,driverId:100,vehicle:{id:10,name:"PB13"},shiftStatus:5,startLogTime:"2026-08-11T22:40:38.000000Z",endLogTime:"2026-08-11T22:42:08.000000Z",duration:"00:01:30",locationName:"3018 N Old Hwy 91, Cedar City, UT 84721, USA",shift_time:"13:57:00",cycle_time:"69:57:00",break_time:"07:58:30",drive_time:"10:57:00",odometer:"1827417.0",engineHours:"25140.2"},
+    //     {sendType:DUTY_STATUS_CHANGED_EVENT,driverId:100,vehicle:{id:10,name:"PB13"},shiftStatus:3,startLogTime:"2026-08-11T22:40:38.000000Z",endLogTime:"2026-08-11T22:42:08.000000Z",duration:"00:01:30",locationName:"3018 N Old Hwy 91, Cedar City, UT 84721, USA",shift_time:"13:57:00",cycle_time:"69:57:00",break_time:"07:58:30",drive_time:"10:57:00",odometer:"1827417.0",engineHours:"25140.2"},
+    //     {sendType:DUTY_STATUS_CHANGED_EVENT,driverId:100,vehicle:{id:10,name:"PB13"},shiftStatus:2,startLogTime:"2026-08-11T22:40:38.000000Z",endLogTime:"2026-08-11T22:42:08.000000Z",duration:"00:01:30",locationName:"3018 N Old Hwy 91, Cedar City, UT 84721, USA",shift_time:"13:57:00",cycle_time:"69:57:00",break_time:"07:58:30",drive_time:"10:57:00",odometer:"1827417.0",engineHours:"25140.2"},
+    // ];
+    //     const payload = devTestPayload[devTestIndex.current];
+    //     devTestIndex.current = (devTestIndex.current + 1) % devTestPayload.length;
+    //     if (__DEV__) {
+    //         console.log('[dev] simulating realtime duty-status event', payload);
+    //     }
+    //     realtimeSocket.simulateIncomingMessage(payload);
+    // };
+    ////////////////////// DEV only ///////////////////
+
     return (
         <Container>
             <AppStatusBar />
@@ -190,7 +210,15 @@ const Home = () => {
                         onPressStatusChange={() => setShowStatus((state) => !state)}
                         modeName={currentStatus?.name ?? 'No Shift'}
                     />
-
+                     {/* {__DEV__ ? (
+                        <Pressable
+                            onPress={simulateDutyStatusEvent}
+                        >
+                            <Text style={styles.statusText}>
+                                DEV: Simulate realtime duty-status event
+                            </Text>
+                        </Pressable>
+                    ) : null} */}
                     <View style={styles.statusTextContainer}>
                         <Icon
                             name="clock"
@@ -225,7 +253,7 @@ const Home = () => {
                             cycleTime={hosTimes.cycleTime}
                         />
                     )}
-
+                   
                     <View style={styles.bottomCard}>
                         <HomeMenuCard
                             title="Compliance"

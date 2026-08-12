@@ -1,7 +1,9 @@
 import SessionManager from '../session/SessionManager';
 import { SocketClient } from './socketClient';
 import {
+    AUTH_EXPIRED_EVENT,
     AUTH_FAILED_EVENT,
+    AUTH_MISMATCH_EVENT,
     AUTH_SEND_TYPE,
     AUTH_SUCCESS_EVENT,
     getRealtimeSocketUrl,
@@ -33,7 +35,7 @@ export const realtimeSocket = new SocketClient<WsReceiveType | SessionMessageTyp
             void SessionManager.getToken().then((token) => {
                 if (token) {
                     logger.log("Initial request to establish connection with websocket"+token)
-                    send({ sendType: AUTH_SEND_TYPE, token: token });
+                    send({ sendType: AUTH_SEND_TYPE, token: token.trim() });
                 }
             });
         }
@@ -55,5 +57,21 @@ realtimeSocket.on(AUTH_FAILED_EVENT, (payload) => {
     // server just rejected — stop here. The connection re-establishes on
     // its own next time useRealtime sees a fresh login (and thus a fresh
     // token via SessionManager.getToken() in the handshake above).
+    realtimeSocket.disconnect();
+});
+
+// Token expired mid-session (as opposed to auth_failed, which is the
+// initial handshake being rejected). Same reasoning as above: stop
+// reconnecting with a token that's no longer valid. The actual
+// force-logout callback is triggered from useRealtime.ts, since that's
+// where the app-level onForceLogout handler is registered — this module
+// only owns the connection, not the app's response to losing it.
+realtimeSocket.on(AUTH_EXPIRED_EVENT, (payload) => {
+    logger.log(`Realtime socket auth_expired: ${JSON.stringify(payload).slice(0, 200)}`);
+    realtimeSocket.disconnect();
+});
+
+realtimeSocket.on(AUTH_MISMATCH_EVENT, (payload) => {
+    logger.log(`Realtime socket auth_mismatch: ${JSON.stringify(payload).slice(0, 200)}`);
     realtimeSocket.disconnect();
 });

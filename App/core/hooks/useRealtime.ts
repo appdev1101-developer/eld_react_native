@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { realtimeSocket } from '../realtime/realtimeSocket';
-import { DUTY_STATUS_CHANGED_EVENT, FORCE_LOGOUT_EVENT } from '../realtime/socketConfig';
+import { AUTH_EXPIRED_EVENT,AUTH_MISMATCH_EVENT, DUTY_STATUS_CHANGED_EVENT, FORCE_LOGOUT_EVENT } from '../realtime/socketConfig';
 import { logger } from '../logger';
 
 export type DutyStatusChangedPayload = {
-    // latestLogId?: number;
-    // latestLog?: string;
-    shiftId?: string | number;
-    changedAt?: string;
+    shift_id: number;
+    timeLeftInDrive: string;
+    timeLeftInShift: string;
+    timeLeftInCycle: string;
+    timeLeftInBreak: string;
+    timeInCurrentStatus: string;
 };
 
 type UseRealtimeOptions = {
@@ -29,21 +31,37 @@ function parseForceLogoutEvent(payload: Record<string, unknown>): boolean {
 function parseDutyStatusChangedEvent(
     payload: Record<string, unknown>
 ): DutyStatusChangedPayload {
+    logger.log(">>>>> parseDutyStatusChnaged called >> ")
     try {
         const data = payload as {
-        shift_id?: string | number;
-        changed_at?: string;
+        shiftStatus: number;
+        shift_time: string;
+        cycle_time: string;
+        break_time: string;
+        drive_time: string;
+        duration: string;
     };
  
     // No fields beyond sendType are guaranteed present — if the server
     // sends this as a bare signal (no status data attached), the caller
     // still gets called so it can fall back to a plain refetch.
     return {
-        shiftId: data.shift_id,
-        changedAt: data.changed_at
+        shift_id: data.shiftStatus ?? -1,
+        timeLeftInDrive: data.drive_time,
+        timeLeftInShift: data.shift_time,
+        timeLeftInCycle: data.cycle_time,
+        timeLeftInBreak: data.break_time,
+        timeInCurrentStatus: data.duration,
      };
     } catch {
-        return {};
+        return {
+            shift_id: -1,
+            timeLeftInDrive: "",
+            timeLeftInShift: "",
+            timeLeftInCycle: "",
+            timeLeftInBreak: "",
+            timeInCurrentStatus: "",
+        };
     }
 }
 
@@ -84,7 +102,24 @@ export function useRealtime({
             // token in the handshake, so arrival here is itself the
             // signal — driverId is logged for the audit trail, not used
             // as a filter (don't second-guess a server-issued logout).
-            logger.log(`Force logout received (driverId=${payload.driverId ?? 'n/a'})`);
+            //logger.log(`Force logout received (driverId=${payload.driverId ?? 'n/a'})`);
+            logger.log(`Force logout received`);
+            void onForceLogoutRef.current();
+        });
+
+        // auth_expired means this connection's token is no longer valid
+        // mid-session — treated as equivalent to an explicit force logout,
+        // since there's no token-refresh flow to fall back to here.
+        const unsubscribeAuthExpired = realtimeSocket.on(AUTH_EXPIRED_EVENT, () => {
+            logger.log('Auth expired — treating as force logout');
+            void onForceLogoutRef.current();
+        });
+
+        // auth_mismatch means this connection's token is no longer valid
+        // mid-session — treated as equivalent to an explicit force logout,
+        // since there's no token-refresh flow to fall back to here.
+        const unsubscribeAuthTokenMismatch = realtimeSocket.on(AUTH_MISMATCH_EVENT, () => {
+            logger.log('Auth mismatch — treating as force logout');
             void onForceLogoutRef.current();
         });
 
@@ -94,6 +129,8 @@ export function useRealtime({
  
         return () => {
             unsubscribeForceLogout();
+            unsubscribeAuthExpired();
+            unsubscribeAuthTokenMismatch();
             unsubscribeDutyStatus();
         };
     }, []);

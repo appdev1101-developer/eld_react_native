@@ -16,9 +16,9 @@ export const hosApi = {
         return toLegacyPayload(response);
     },
 
-    getHosData: (toDate: string, fromDate: string) =>
+    getHosData: (fromDate: string, toDate: string) =>
         apiGet<Record<string, unknown>>(
-            API.hos.data(toDate, fromDate),
+            API.hos.data(fromDate,toDate),
             mapPassthrough
         ),
 
@@ -26,7 +26,7 @@ export const hosApi = {
         fromDate: string,
         toDate: string
     ): Promise<LegacyApiPayload> => {
-        const response = await hosApi.getHosData(toDate, fromDate);
+        const response = await hosApi.getHosData(fromDate,toDate );
         return toLegacyPayload(response);
     },
 

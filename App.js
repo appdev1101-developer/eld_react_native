@@ -38,7 +38,7 @@ const App = () => {
 
     const { loginStatus, userData } = useSelector((state) => state.User);
     const dashboardHos = useSelector((state) => state.Dashboard.hos);
-    const { refreshHos } = useDashboard();
+    //const { refreshHos } = useDashboard();
 
     const [isLoading, setIsLoading] = useState(true);
     const [isdark, setIsDark] = useState(false);
@@ -70,25 +70,25 @@ const App = () => {
             logger.log(
                 `Realtime duty status event: id=${payload.shift_id ?? 'n/a'} label=${payload.shift_id ?? 'n/a'}`
             );
-            if (payload.shift_id != null || payload.shift_id) {
+            if (payload.shift_id > 0) {
                 dispatch(
                     setDashboardHos({
-                        timeLeftInDrive: '00:00',
-                        timeLeftInShift: '00:00',
-                        timeLeftInCycle: '00:00',
-                        timeLeftInBreak: '00:00',
-                        timeInCurrentStatus: '00:00',
+                        timeLeftInDrive: payload.timeLeftInDrive ?? '00:00',
+                        timeLeftInShift: payload.timeLeftInShift ?? '00:00',
+                        timeLeftInCycle: payload.timeLeftInCycle ?? '00:00',
+                        timeLeftInBreak: payload.timeLeftInBreak ?? '00:00',
+                        timeInCurrentStatus: payload.timeInCurrentStatus ?? '00:00',
                         ...dashboardHos,
-                        ...(payload.shift_id != null
+                        ...(payload.shift_id > 0
                             ? { shift_id: payload.shift_id }
                             : {}),
                         ...(payload.shift_id ? { shift_id: payload.shift_id } : {})
                     })
                 );
             }
-            refreshHos().catch(() => {});
+            //refreshHos().catch(() => {});
         },
-        [dashboardHos, dispatch, refreshHos]
+        [dashboardHos, dispatch] //refreshHos
     );
 
     const { disconnect: disconnectRealtime } = useRealtime({

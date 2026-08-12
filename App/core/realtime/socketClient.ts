@@ -38,6 +38,7 @@ export type SocketClientOptions = {
 };
 
 function getSocketErrorMessage(error: unknown): string {
+    logger.log(">>>> getSocketErrorMessage >>>> "+ error);
     if (error && typeof error === 'object' && 'message' in error) {
         return String((error as { message?: unknown }).message ?? '');
     }
@@ -87,9 +88,11 @@ export class SocketClient<TMessageType extends string> {
 
             socket.onmessage = (event) => {
                 try {
+                    logger.log("<<<<<<< Socket.onmessage Data  >>>>>>>>>>> "+event.data)
                     const data = JSON.parse(String(event.data));
                     logger.log("<<<<<<< Socket.onmessage Data  >>>>>>>>>>> "+data)
                     const type = data?.[this.options.typeField];
+                    logger.log("<<<<<<< Socket.onmessage type  >>>>>>>>>>> "+type)
                     if (type) {
                         this.emit(type as TMessageType, data);
                     }
@@ -170,6 +173,14 @@ export class SocketClient<TMessageType extends string> {
         }
         this.ws.send(JSON.stringify(payload));
     }
+
+    // For DEV only to test the update status coming from websocket
+    // simulateIncomingMessage(payload: Record<string, unknown>) {
+    //     const type = payload[this.options.typeField];
+    //     if (type) {
+    //         this.emit(type as TMessageType, payload);
+    //     }
+    // }
 
     /** True if the underlying socket is currently open. */
     isConnected(): boolean {

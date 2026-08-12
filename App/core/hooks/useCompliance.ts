@@ -62,7 +62,6 @@ export function useCompliance() {
 
             const today = moment().format('YYYY-MM-DD');
             const fromDate = moment().subtract(7, 'days').format('YYYY-MM-DD');
-
             try {
                 const [hosResult, chartResult] = await Promise.all([
                     hosApi.getHosDataLegacy(fromDate, today),

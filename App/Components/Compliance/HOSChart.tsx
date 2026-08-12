@@ -49,7 +49,7 @@ const HOSChart: React.FC<Props> = ({
         const [hourStr, minuteStr] = timeStr.split(':');
         const hour = parseInt(hourStr, 10);
         const minutes = parseInt(minuteStr || '0', 10);
-        return hour + minutes / 60;
+        return hour + (minutes / 60);
     };
 
     const getShadedPath = (
