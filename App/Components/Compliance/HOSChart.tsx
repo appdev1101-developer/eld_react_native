@@ -19,6 +19,29 @@ type Props = {
 
 const { width: screenWidth } = Dimensions.get('window');
 
+/**
+ * The app has 6 duty-status codes (see Constants/DutyStatus.ts):
+ *   1 Off Duty, 2 Sleeper Berth, 3 Driving, 4 On Duty,
+ *   5 Personal Conveyance, 6 Yard Move
+ * but the ELD grid only has 4 rows. Standard ELD-grid convention (matches
+ * most other ELD apps) draws Personal Conveyance as a dashed line in the
+ * OFF DUTY row, and Yard Move as a dashed line in the ON DUTY row, rather
+ * than as separate rows. Statuses 5 and 6 previously had no mapping here
+ * at all — indexing straight off `status - 1` ran off the end of the
+ * 4-item `statuses` array for those two, drawing the line at an invalid Y
+ * position instead of a wrong-but-visible one.
+ */
+const ROW_INDEX_BY_STATUS: Record<number, number> = {
+    1: 0, // OFF
+    2: 1, // SB
+    3: 2, // D
+    4: 3, // ON
+    5: 0, // Personal Conveyance -> OFF row, dashed
+    6: 3 // Yard Move -> ON row, dashed
+};
+
+const DASHED_STATUS_CODES = new Set([5, 6]);
+
 const HOSChart: React.FC<Props> = ({
     marginHorizontal = moderateScale(38),
     lineObject = [],
@@ -34,8 +57,7 @@ const HOSChart: React.FC<Props> = ({
     const yGap = 10;
     const quaterWidth = hourWidth / 4;
 
-    const getStatusY = (status: string) =>
-        statuses.indexOf(status) * rowHeight + rowHeight / 2;
+    const getStatusY = (rowIndex: number) => rowIndex * rowHeight + rowHeight / 2;
 
     const getTimeText = (index: number): string => {
         return index < 11
@@ -49,7 +71,7 @@ const HOSChart: React.FC<Props> = ({
         const [hourStr, minuteStr] = timeStr.split(':');
         const hour = parseInt(hourStr, 10);
         const minutes = parseInt(minuteStr || '0', 10);
-        return hour + (minutes / 60);
+        return hour + minutes / 60;
     };
 
     const getShadedPath = (
@@ -66,7 +88,6 @@ const HOSChart: React.FC<Props> = ({
         const startX = xGap + startDec * hourWidth;
         const endX = xGap + endDec * hourWidth;
         const endOfDayX = xGap + 24 * hourWidth;
-        console.log('startDec', startDec, endDec, startX);
 
         if (startDec <= endDec) {
             // Normal same-day shade
@@ -94,14 +115,22 @@ const HOSChart: React.FC<Props> = ({
         }
     };
 
-    function getRandomHexColor() {
-        const letters = '0123456789ABCDEF';
-        let color = '#';
-        for (let i = 0; i < 6; i++) {
-            color += letters[Math.floor(Math.random() * 16)];
+    /**
+     * Was previously Math.random() on every render, so the swatch color
+     * changed on every re-render instead of staying fixed to the vehicle.
+     * This derives a stable color from the vehicle name instead — same
+     * input always produces the same color, no vehicle-color field exists
+     * on the API's vehicle data to use directly (see Model/Dashboard.ts).
+     */
+    const getVehicleColor = (name?: string): string => {
+        if (!name) return '#0075e7';
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) {
+            hash = name.charCodeAt(i) + ((hash << 5) - hash);
         }
-        return color;
-    }
+        const hue = Math.abs(hash) % 360;
+        return `hsl(${hue}, 55%, 55%)`;
+    };
 
     return (
         <View style={{ alignItems: 'center' }}>
@@ -206,41 +235,91 @@ const HOSChart: React.FC<Props> = ({
                     </G>
                 ))}
 
-                <Path
-                    d={(() => {
-                        if (!lineObject.length) return '';
+                {(() => {
+                    if (!lineObject.length) return null;
 
-                        let path = '';
-                        for (let i = 0; i < lineObject.length; i++) {
-                            const line = lineObject[i];
-                            const currentY = getStatusY(statuses[line.status - 1]) + yGap;
-                            const startX = xGap + timeToDecimal(line.start) * hourWidth;
-                            const endX = xGap + timeToDecimal(line.end) * hourWidth;
+                    let solidPath = '';
+                    let dashedPath = '';
+                    let lastSolidPoint: { x: number; y: number } | null = null;
+                    let lastDashedPoint: { x: number; y: number } | null = null;
 
-                            if (i === 0) {
-                                path += `M${startX},${currentY} `;
-                            }
+                    const appendTo = (
+                        isDashed: boolean,
+                        x: number,
+                        y: number
+                    ) => {
+                        const lastPoint = isDashed ? lastDashedPoint : lastSolidPoint;
+                        const needsMove =
+                            !lastPoint || lastPoint.x !== x || lastPoint.y !== y;
+                        const segment = `${needsMove ? 'M' : 'L'}${x},${y} `;
+                        if (isDashed) {
+                            dashedPath += segment;
+                            lastDashedPoint = { x, y };
+                        } else {
+                            solidPath += segment;
+                            lastSolidPoint = { x, y };
+                        }
+                    };
 
-                            path += `L${endX},${currentY} `;
+                    for (let i = 0; i < lineObject.length; i++) {
+                        const line = lineObject[i];
+                        const rowIndex = ROW_INDEX_BY_STATUS[line.status] ?? 0;
+                        const currentY = getStatusY(rowIndex) + yGap;
+                        const startDec = timeToDecimal(line.start);
+                        const endDec = timeToDecimal(line.end);
+                        const startX = xGap + startDec * hourWidth;
+                        const endX = xGap + endDec * hourWidth;
+                        const isDashed = DASHED_STATUS_CODES.has(line.status);
 
-                            if (i < lineObject.length - 1) {
-                                const nextY =
-                                    getStatusY(statuses[lineObject[i + 1].status - 1]) +
-                                    yGap;
-                                if (nextY !== currentY) {
-                                    path += `L${endX},${nextY} `;
-                                }
-                            }
+                        if (startDec <= endDec) {
+                            appendTo(isDashed, startX, currentY);
+                            appendTo(isDashed, endX, currentY);
+                        } else {
+                            // Crosses midnight (e.g. Driving 23:00 -> 01:30):
+                            // draw start->end-of-day, then start-of-day->end,
+                            // same split used for violation shading below.
+                            const endOfDayX = xGap + 24 * hourWidth;
+                            appendTo(isDashed, startX, currentY);
+                            appendTo(isDashed, endOfDayX, currentY);
+                            appendTo(isDashed, xGap, currentY);
+                            appendTo(isDashed, endX, currentY);
                         }
 
-                        return path.trim();
-                    })()}
-                    fill="none"
-                    stroke="#0075e7"
-                    strokeWidth={2}
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                />
+                        if (i < lineObject.length - 1) {
+                            const nextLine = lineObject[i + 1];
+                            const nextRowIndex = ROW_INDEX_BY_STATUS[nextLine.status] ?? 0;
+                            const nextY = getStatusY(nextRowIndex) + yGap;
+                            if (nextY !== currentY) {
+                                // Step connector drawn in the outgoing
+                                // segment's style, continuing from the
+                                // point we're already at.
+                                appendTo(isDashed, endX, nextY);
+                            }
+                        }
+                    }
+
+                    return (
+                        <>
+                            <Path
+                                d={solidPath.trim()}
+                                fill="none"
+                                stroke="#0075e7"
+                                strokeWidth={2}
+                                strokeLinejoin="round"
+                                strokeLinecap="round"
+                            />
+                            <Path
+                                d={dashedPath.trim()}
+                                fill="none"
+                                stroke="#0075e7"
+                                strokeWidth={2}
+                                strokeDasharray="4,3"
+                                strokeLinejoin="round"
+                                strokeLinecap="round"
+                            />
+                        </>
+                    );
+                })()}
 
                 {/* Violations: Shaded Red Paths */}
                 {violations.flatMap(({ start, end }, index) =>
@@ -261,7 +340,7 @@ const HOSChart: React.FC<Props> = ({
                     y={height + 20}
                     width={15}
                     height={15}
-                    fill={getRandomHexColor()}
+                    fill={getVehicleColor(vehicleName)}
                     stroke="#ccc"
                     strokeWidth="0.5"
                 />

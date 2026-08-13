@@ -1,28 +1,3 @@
-export type HOSApiDataType = {
-    time_left_in_shift: string;
-    time_left_in_cycle: string;
-    time_left_in_drive: string;
-    time_left_in_break: string;
-    latest_log: string;
-    time_in_current_status: string;
-};
-
-export type HOSChartData = {
-    graph_data: Array<Array<any>>;
-    violation_data: {
-        Shift_data: Array<{
-            shift_id: number;
-            violation_duration: string;
-            violation_startTime: string;
-            violation_endTime: string;
-        }>;
-        total_shift_time: string;
-    };
-    vehicle?: Array<{
-        name: string;
-    }>;
-};
-
 export interface ConfigResponse {
     status: string;
     code: number;

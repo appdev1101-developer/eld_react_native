@@ -1,45 +1,31 @@
 import moment from 'moment';
 import { useCallback, useState } from 'react';
 import { hosApi } from '../api/services/hosApi';
-import { isLegacySuccess } from '../api/types/common';
+import { isSuccess } from '../api/types/common';
+import { HosDayRecord } from '../api/types/hosLog';
 import {
     ComplianceCachedData,
-    HosLogDayRecord,
     getComplianceCache,
     invalidateComplianceCache,
     setComplianceCache
 } from '../cache/complianceCache';
-import { HOSChartData } from '../../Model/Dashboard';
 
-const emptyChart: HOSChartData = {
-    graph_data: [],
-    violation_data: {
-        Shift_data: [],
-        total_shift_time: ''
-    }
-};
-
-function splitHosLogData(logData: HosLogDayRecord[]) {
+function splitHosLogData(records: HosDayRecord[]) {
     const todayKey = moment().format('YYYY-MM-DD');
-    const todayData =
-        logData.find((item) => Object.keys(item).includes(todayKey)) ?? null;
-    const hosData = logData.filter(
-        (item) => !Object.keys(item).includes(todayKey)
-    );
-    return { todayData, hosData };
+    const todayRecord = records.find((record) => record.date === todayKey) ?? null;
+    const hosRecords = records.filter((record) => record.date !== todayKey);
+    return { todayRecord, hosRecords };
 }
 
 export function useCompliance() {
-    const [todayData, setTodayData] = useState<HosLogDayRecord | null>(null);
-    const [hosData, setHosData] = useState<HosLogDayRecord[]>([]);
-    const [chartData, setChartData] = useState<HOSChartData>(emptyChart);
+    const [todayRecord, setTodayRecord] = useState<HosDayRecord | null>(null);
+    const [hosRecords, setHosRecords] = useState<HosDayRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     const applyCache = useCallback((cached: ComplianceCachedData) => {
-        setTodayData(cached.todayData);
-        setHosData(cached.hosData);
-        setChartData(cached.chartData);
+        setTodayRecord(cached.todayRecord);
+        setHosRecords(cached.hosRecords);
         setLoading(false);
     }, []);
 
@@ -60,37 +46,27 @@ export function useCompliance() {
                 setLoading(true);
             }
 
-            const today = moment().format('YYYY-MM-DD');
-            const fromDate = moment().subtract(7, 'days').format('YYYY-MM-DD');
             try {
-                const [hosResult, chartResult] = await Promise.all([
-                    hosApi.getHosDataLegacy(fromDate, today),
-                    hosApi.getChartDataLegacy(today)
-                ]);
+                // Single call replaces the previous two (hos/mobile/data
+                // for the 7-day list + hos/mobile/graph/data for today's
+                // chart) — this endpoint already returns today as just the
+                // most recent entry in the same array.
+                const result = await hosApi.getLogData();
 
-                let nextToday: HosLogDayRecord | null = null;
-                let nextHos: HosLogDayRecord[] = [];
-                let nextChart = emptyChart;
+                let nextToday: HosDayRecord | null = null;
+                let nextHos: HosDayRecord[] = [];
 
-                if (isLegacySuccess(hosResult) && Array.isArray(hosResult.log_data)) {
-                    const split = splitHosLogData(
-                        hosResult.log_data as HosLogDayRecord[]
-                    );
-                    nextToday = split.todayData;
-                    nextHos = split.hosData;
-                    setTodayData(nextToday);
-                    setHosData(nextHos);
-                }
-
-                if (isLegacySuccess(chartResult) && chartResult.data) {
-                    nextChart = chartResult.data as HOSChartData;
-                    setChartData(nextChart);
+                if (isSuccess(result)) {
+                    const split = splitHosLogData(result.data);
+                    nextToday = split.todayRecord;
+                    nextHos = split.hosRecords;
+                    setTodayRecord(nextToday);
+                    setHosRecords(nextHos);
                 }
 
                 const cached: ComplianceCachedData = {
-                    todayData: nextToday,
-                    hosData: nextHos,
-                    chartData: nextChart,
+                    todayRecord: nextToday,
+                    hosRecords: nextHos,
                     fetchedAt: Date.now()
                 };
                 setComplianceCache(cached);
@@ -115,9 +91,8 @@ export function useCompliance() {
     }, [fetchCompliance]);
 
     return {
-        todayData,
-        hosData,
-        chartData,
+        todayRecord,
+        hosRecords,
         loading,
         refreshing,
         fetchCompliance,

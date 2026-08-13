@@ -33,9 +33,10 @@ export const API = {
             `approval/mobile/request/${type}/${status}`
     },
     hos: {
-        data: (toDate: string, fromDate: string) =>
-            `hos/mobile/data/${toDate}/${fromDate}`,
-        chart: (date: string) => `hos/mobile/graph/data/${date}`,
+        // data: (fromDate: string, toDate: string) =>
+        //     `hos/mobile/data/${fromDate}/${toDate}`,
+        // chart: (date: string) => `hos/mobile/graph/data/${date}`,
+        logData: () => `hos/mobile/log/data`,
         unsignedLogs: () => 'hos/log/unsigned',
         certifyLog: (date: string) => `hos/log/unsigned/certify/${date}`,
         editActivity: () => 'hos/form/edit/activity'

@@ -1,11 +1,11 @@
-import { HOSChartData } from '../../Model/Dashboard';
+import { HosDayRecord } from "../api/types/hosLog";
+
 
 export type HosLogDayRecord = Record<string, unknown>;
 
 export type ComplianceCachedData = {
-    todayData: HosLogDayRecord | null;
-    hosData: HosLogDayRecord[];
-    chartData: HOSChartData;
+    todayRecord: HosDayRecord | null;
+    hosRecords: HosDayRecord[];
     fetchedAt: number;
 };
 

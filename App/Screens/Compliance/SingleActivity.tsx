@@ -7,7 +7,7 @@ import {
     StyleSheet,
     View
 } from 'react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
     AppButton,
     AppTextInput,
@@ -21,81 +21,109 @@ import HomeHeader from '../../Components/Headers/HomeHeader';
 import { moderateScale } from '../../Constants/PixelRatio';
 import ActivityCard from '../../Components/Compliance/ActivityCard';
 import { FONTS } from '../../Constants/Fonts';
-import { useFocusEffect, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
 import SignatureScreen, { SignatureViewRef } from 'react-native-signature-canvas';
-import moment from 'moment';
-import { HOSChartData } from '../../Model/Dashboard';
+import moment from 'moment-timezone';
+import { HosDayRecord } from '../../core/api/types/hosLog';
 import { hosApi } from '../../core/api/services/hosApi';
-import { isLegacySuccess, isSuccess } from '../../core/api/types/common';
+import { isSuccess } from '../../core/api/types/common';
 import HOSChart from '../../Components/Compliance/HOSChart';
 import { requireOnline } from '../../core/network/requireOnline';
 import { showError, showToast } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { GRADIENT_HEADER } from '../../Constants/Theme';
+import { RootState } from '../../Redux/store';
+import { useAppConfig } from '../../core/hooks/useAppConfig';
 
 const { width } = Dimensions.get('screen');
+
+/**
+ * Formats one graph_data entry's time range for the Log tab, e.g.
+ * "12:00 AM MST | 22h 50m". The old endpoint apparently pre-formatted this
+ * server-side (the code read it as two positional array fields); the new
+ * endpoint only gives raw start/end "HH:mm:ss", so it's built client-side
+ * here instead.
+ */
+function formatLogTimeRange(
+    date: string,
+    startTime: string,
+    endTime: string,
+    timezone: string
+): string {
+    const startMoment = moment.tz(`${date} ${startTime}`, 'YYYY-MM-DD HH:mm:ss', timezone);
+    const endMoment = moment.tz(`${date} ${endTime}`, 'YYYY-MM-DD HH:mm:ss', timezone);
+    if (!startMoment.isValid()) {
+        return `${startTime} - ${endTime}`;
+    }
+
+    const zoneAbbr = startMoment.format('z');
+    const durationMinutes = Math.max(0, endMoment.diff(startMoment, 'minutes'));
+    const hours = Math.floor(durationMinutes / 60);
+    const minutes = durationMinutes % 60;
+    const durationLabel = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+
+    return `${startMoment.format('h:mm A')} ${zoneAbbr} | ${durationLabel}`;
+}
+
 const SingleActivity = () => {
     const ref = useRef<SignatureViewRef>(null);
     const route = useRoute<any>();
+    const record: HosDayRecord | undefined = route.params?.record;
+    const { userData } = useSelector((state: RootState) => state.User);
+    const { configData } = useAppConfig();
+
     const [selectedTab, setSelectedTab] = useState<number>(1);
-    const [chartData, setChartData] = useState<HOSChartData>({
-        graph_data: [],
-        violation_data: {
-            Shift_data: [],
-            total_shift_time: ''
-        }
-    });
 
     const [distance, setDistance] = useState<string>(
-        route.params.distance?.toString() || ''
+        record?.log.distance_diffr?.toString() ?? ''
     );
     const [odometer, setOdometer] = useState<string>(
-        route.params.odometer?.toString() || ''
+        record?.log.odometer?.toString() ?? ''
     );
+    // NOTE: the old positional endpoint included driver/carrier/office
+    // details at fromDetails[0]/[3] — the new hos/mobile/log/data response
+    // has no equivalent fields at all. Driver name reasonably defaults to
+    // the logged-in driver (this form is for their own day's log); carrier
+    // name and office addresses have no current source and are left blank
+    // pending either a backend field or a separate profile/carrier
+    // endpoint — worth flagging to the backend team rather than guessing.
     const [driverName, setDriverName] = useState<string>(
-        `${route.params.fromDetails?.[0]?.first_name ?? ''} ${
-            route.params.fromDetails?.[0]?.last_name ?? ''
-        }`.trim()
+        `${userData?.first_name ?? ''} ${userData?.last_name ?? ''}`.trim()
     );
-    const [carrierName, setCarrierName] = useState<string>(
-        route.params.fromDetails?.[3]?.career_name ?? ''
-    );
-    const [mainOfficeAddress, setMainOfficeAddress] = useState<string>(
-        route.params.fromDetails?.[3]?.main_office_address ?? ''
-    );
-    const [homeTerminalAddress, setHomeTerminalAddress] = useState<string>(
-        route.params.fromDetails?.[3]?.home_terminal?.address ?? ''
-    );
+    const [carrierName, setCarrierName] = useState<string>('');
+    const [mainOfficeAddress, setMainOfficeAddress] = useState<string>('');
+    const [homeTerminalAddress, setHomeTerminalAddress] = useState<string>('');
     const [coDriver, setCoDriver] = useState<
         Array<{ id: number; first_name: string; last_name: string }>
-    >(route.params.coDriver ?? []);
-    const [origin, setOrigin] = useState<string>(route.params.origin ?? 'None');
+    >(record?.log.coDriver_list ?? []);
+    const [origin, setOrigin] = useState<string>(record?.log.start_location ?? 'None');
     const [destination, setDestination] = useState<string>(
-        route.params.destination ?? 'None'
+        record?.log.location_end ?? 'None'
     );
     const [selecetdCoDriver, setSelectedCoDriver] = useState<string>('');
 
-    useFocusEffect(
-        useCallback(() => {
-            getHOSChartData();
-        }, [route.params.date])
+    // The day's chart/log/violation data now comes straight from the
+    // record passed via navigation (Compliance/index.tsx already has it
+    // loaded) — no separate fetch needed here anymore.
+    const lineObject = useMemo(
+        () =>
+            (record?.log.graph_data ?? []).map((entry) => ({
+                start: entry.start_log_time,
+                end: entry.end_log_time,
+                status: entry.shift_id
+            })),
+        [record]
     );
-    // useEffect(() => {
-    //     getHOSChartData();
-    // }, []);
 
-    const getHOSChartData = () => {
-        hosApi
-            .getChartDataLegacy(moment(route.params.date).format('YYYY-MM-DD'))
-            .then((result) => {
-                if (isLegacySuccess(result)) {
-                    setChartData(result.data as HOSChartData);
-                }
-            })
-            .catch((error) => {
-                console.log('error', error);
-            });
-    };
+    const violations = useMemo(
+        () =>
+            (record?.log.violation_data.Shift_data ?? []).map((violation) => ({
+                start: moment(violation.violation_startTime).format('HH:mm'),
+                end: moment(violation.violation_endTime).format('HH:mm')
+            })),
+        [record]
+    );
 
     const uploadImage = async (base64String: string) => {
         const mimeTypeMatch = base64String.match(/data:(.*);base64/);
@@ -114,7 +142,7 @@ const SingleActivity = () => {
 
         try {
             const result = await hosApi.certifyLogSignature(
-                route.params.date,
+                record?.date ?? '',
                 signatureUri,
                 mimeType
             );
@@ -135,7 +163,7 @@ const SingleActivity = () => {
         const data = {
             first_name: driverName.split(' ')[0],
             last_name: driverName.split(' ')[1],
-            date: route.params.date,
+            date: record?.date ?? '',
             cariier_name: carrierName,
             main_office_address: mainOfficeAddress,
             home_terminal_address: homeTerminalAddress,
@@ -170,28 +198,18 @@ const SingleActivity = () => {
                 <HomeHeader showBack />
 
                 <View style={styles.bodyCard}>
-                    {route.params.data && (
+                    {record ? (
                         <ActivityCard
-                            date={route.params.date}
-                            totalShiftTime={route.params.data?.total_shift_time}
+                            date={record.date}
+                            totalShiftTime={record.log.total_log_time}
+                            isInspectionPending={record.log.inspection_exist}
                         />
-                    )}
+                    ) : null}
 
                     <HOSChart
-                        lineObject={chartData.graph_data.map((item) => {
-                            return {
-                                start: item[3],
-                                end: item[4],
-                                status: item[1]
-                            };
-                        })}
-                        violations={chartData.violation_data.Shift_data.map((item) => {
-                            return {
-                                start: moment(item.violation_startTime).format('HH:mm'),
-                                end: moment(item.violation_endTime).format('HH:mm')
-                            };
-                        })}
-                        vehicleName={chartData?.vehicle?.[0]?.name}
+                        lineObject={lineObject}
+                        violations={violations}
+                        vehicleName={record?.log.vehicle?.[0]?.name}
                     />
 
                     <View
@@ -271,8 +289,8 @@ const SingleActivity = () => {
 
                     {selectedTab === 1 ? (
                         <FlatList
-                            data={route.params.logData}
-                            keyExtractor={(item, index) => index.toString()}
+                            data={record?.log.graph_data ?? []}
+                            keyExtractor={(item) => String(item.log_id)}
                             renderItem={({ item }) => {
                                 return (
                                     <View
@@ -296,7 +314,7 @@ const SingleActivity = () => {
                                                     opacity: 0.5
                                                 }}
                                             >
-                                                {item[1]}
+                                                {item.log_name}
                                             </Text>
                                         </View>
 
@@ -312,7 +330,12 @@ const SingleActivity = () => {
                                                     color: '#33404F'
                                                 }}
                                             >
-                                                {item[4]} - {item[5]}
+                                                {formatLogTimeRange(
+                                                    record?.date ?? '',
+                                                    item.start_log_time,
+                                                    item.end_log_time,
+                                                    configData?.timezone ?? moment.tz.guess()
+                                                )}
                                             </Text>
 
                                             <Text
@@ -324,7 +347,7 @@ const SingleActivity = () => {
                                                     marginTop: moderateScale(5)
                                                 }}
                                             >
-                                                {item[8]}
+                                                {item.location_start ?? 'No location'}
                                             </Text>
                                         </View>
                                     </View>

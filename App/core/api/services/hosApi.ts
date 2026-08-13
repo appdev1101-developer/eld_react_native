@@ -1,32 +1,23 @@
 import { API } from '../endpoints';
 import { apiGet, apiPost, apiUploadMultipart, toLegacyPayload } from '../client';
 import { mapEmptyData } from '../mappers/dashboardMapper';
+import { mapHosLogData } from '../mappers/hosLogMapper';
 import { LegacyApiPayload } from '../types/common';
+import { HosDayRecord } from '../types/hosLog';
 
 function mapPassthrough(raw: Record<string, unknown>): Record<string, unknown> {
     return raw;
 }
 
 export const hosApi = {
-    getChartData: (date: string) =>
-        apiGet<Record<string, unknown>>(API.hos.chart(date), mapPassthrough),
 
-    getChartDataLegacy: async (date: string): Promise<LegacyApiPayload> => {
-        const response = await hosApi.getChartData(date);
-        return toLegacyPayload(response);
-    },
-
-    getHosData: (fromDate: string, toDate: string) =>
-        apiGet<Record<string, unknown>>(
-            API.hos.data(fromDate,toDate),
-            mapPassthrough
+    getLogData: () =>
+        apiGet<HosDayRecord[]>(API.hos.logData(), (raw) =>
+            mapHosLogData(raw.log_data)
         ),
-
-    getHosDataLegacy: async (
-        fromDate: string,
-        toDate: string
-    ): Promise<LegacyApiPayload> => {
-        const response = await hosApi.getHosData(fromDate,toDate );
+ 
+    getLogDataLegacy: async (): Promise<LegacyApiPayload> => {
+        const response = await hosApi.getLogData();
         return toLegacyPayload(response);
     },
 

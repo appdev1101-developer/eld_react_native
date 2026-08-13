@@ -19,34 +19,13 @@ import ActivityCard from '../../Components/Compliance/ActivityCard';
 import moment from 'moment';
 import HOSChart from '../../Components/Compliance/HOSChart';
 import { useCompliance } from '../../core/hooks/useCompliance';
-import { HosLogDayRecord } from '../../core/cache/complianceCache';
+import { HosDayRecord } from '../../core/api/types/hosLog';
 import { THEME, GRADIENT_HEADER } from '../../Constants/Theme';
-
-type HosDaySummary = { total_shift_time?: string };
-
-function getHosDayValues(
-    item: HosLogDayRecord | null | undefined
-): unknown[] {
-    if (!item) {
-        return [];
-    }
-    const values = Object.values(item)[0];
-    return Array.isArray(values) ? values : [];
-}
-
-function getHosDaySummary(dayValues: unknown[]): HosDaySummary | undefined {
-    const summary = dayValues[0];
-    if (summary && typeof summary === 'object') {
-        return summary as HosDaySummary;
-    }
-    return undefined;
-}
 
 const Compliance = () => {
     const {
-        todayData,
-        hosData,
-        chartData,
+        todayRecord,
+        hosRecords,
         loading,
         refreshing,
         fetchCompliance,
@@ -63,6 +42,13 @@ const Compliance = () => {
             }
         }, [fetchCompliance])
     );
+
+    const openDay = (record: HosDayRecord) => {
+        // Pass the full record — the day's graph/violation/vehicle data is
+        // already loaded here, so SingleActivity no longer needs its own
+        // redundant fetch just to show the chart for a day we already have.
+        NavigationService.navigate('SingleActivity', { record });
+    };
 
     if (loading) {
         return (
@@ -103,88 +89,45 @@ const Compliance = () => {
                         }
                     >
                         <Text style={styles.headerText}>Last Activity, Today</Text>
-                        {todayData && (() => {
-                            const todayValues = getHosDayValues(todayData);
-                            const todaySummary = getHosDaySummary(todayValues);
-                            return (
-                                <ActivityCard
-                                    date={Object.keys(todayData)[0]}
-                                    totalShiftTime={
-                                        todaySummary?.total_shift_time ?? ''
-                                    }
-                                    onPress={() =>
-                                        NavigationService.navigate('SingleActivity', {
-                                            data: todayValues[0],
-                                            date: Object.keys(todayData)[0],
-                                            logData: todayValues[2],
-                                            fromDetails: todayValues[1],
-                                            odometer: todayValues[8],
-                                            distance: todayValues[7],
-                                            origin: todayValues[9],
-                                            destination: todayValues[10],
-                                            coDriver: todayValues[5]
-                                        })
-                                    }
-                                />
-                            );
-                        })()}
+                        {todayRecord ? (
+                            <ActivityCard
+                                date={todayRecord.date}
+                                totalShiftTime={
+                                    todayRecord.log.total_log_time
+                                }
+                                isInspectionPending={todayRecord.log.inspection_exist}
+                                onPress={() => openDay(todayRecord)}
+                            />
+                        ) : null}
 
                         <HOSChart
-                            lineObject={chartData.graph_data.map((item) => {
-                                // console.log("<< Item 3 "+item[3] )
-                                // console.log("<< Item 4 "+item[4] )
-                                // console.log("<< Item 1 "+item[1] )
-                                return {
-                                    start: item[3],
-                                    end: item[4],
-                                    status: item[1]
-                                };
-                            })}
-                            violations={chartData.violation_data.Shift_data.map(
-                                (item) => {
-                                    return {
-                                        start: moment(item.violation_startTime).format(
-                                            'HH:mm'
-                                        ),
-                                        end: moment(item.violation_endTime).format(
-                                            'HH:mm'
-                                        )
-                                    };
-                                }
-                            )}
-                            vehicleName={chartData.vehicle?.[0]?.name}
+                            lineObject={(todayRecord?.log.graph_data ?? []).map((entry) => ({
+                                start: entry.start_log_time,
+                                end: entry.end_log_time,
+                                status: entry.shift_id
+                            }))}
+                            violations={(
+                                todayRecord?.log.violation_data.Shift_data ?? []
+                            ).map((violation) => ({
+                                start: moment(violation.violation_startTime).format('HH:mm'),
+                                end: moment(violation.violation_endTime).format('HH:mm')
+                            }))}
+                            vehicleName={todayRecord?.log.vehicle?.[0]?.name}
                         />
 
                         <View style={styles.sectionDivider}>
                             <Text style={styles.sectionTitle}>Last 7 days</Text>
                         </View>
 
-                        {hosData.map((item, index) => {
-                            const dayValues = getHosDayValues(item);
-                            const daySummary = getHosDaySummary(dayValues);
-                            return (
-                                <ActivityCard
-                                    key={index}
-                                    date={Object.keys(item)[0]}
-                                    totalShiftTime={
-                                        daySummary?.total_shift_time ?? ''
-                                    }
-                                    onPress={() =>
-                                        NavigationService.navigate('SingleActivity', {
-                                            data: dayValues[0],
-                                            date: Object.keys(item)[0],
-                                            logData: dayValues[2],
-                                            fromDetails: dayValues[1],
-                                            odometer: dayValues[8],
-                                            distance: dayValues[7],
-                                            origin: dayValues[9],
-                                            destination: dayValues[10],
-                                            coDriver: dayValues[5]
-                                        })
-                                    }
-                                />
-                            );
-                        })}
+                        {hosRecords.map((record) => (
+                            <ActivityCard
+                                key={record.date}
+                                date={record.date}
+                                totalShiftTime={record.log.total_log_time}
+                                isInspectionPending={record.log.inspection_exist}
+                                onPress={() => openDay(record)}
+                            />
+                        ))}
                     </ScrollView>
                 </View>
             </LinearGradient>
