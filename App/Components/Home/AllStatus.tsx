@@ -2,13 +2,14 @@ import { Image, StyleSheet, View } from 'react-native';
 import React, { useState } from 'react';
 import { moderateScale } from '../../Constants/PixelRatio';
 import HomeCard from './HomeCard';
-import { StatusDataType } from '../../Screens/Home';
+
 import { Icon, Text } from 'react-native-basic-elements';
 import { AppCard, EditField } from '../UI';
 import { FONTS } from '../../Constants/Fonts';
 import { showError } from '../../Utils/toast';
 import { required } from '../../Utils/validators';
 import { THEME } from '../../Constants/Theme';
+import { StatusDataType } from '../../core/shift_status';
 
 type Props = {
     data: Array<StatusDataType>;

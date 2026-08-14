@@ -35,6 +35,7 @@ import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { GRADIENT_HEADER } from '../../Constants/Theme';
 import { RootState } from '../../Redux/store';
 import { useAppConfig } from '../../core/hooks/useAppConfig';
+import { transformHOSGraphData, transformViolations } from '../../Utils/hos_chart/hosChartTransformer';
 
 const { width } = Dimensions.get('screen');
 
@@ -81,13 +82,7 @@ const SingleActivity = () => {
     const [odometer, setOdometer] = useState<string>(
         record?.log.odometer?.toString() ?? ''
     );
-    // NOTE: the old positional endpoint included driver/carrier/office
-    // details at fromDetails[0]/[3] — the new hos/mobile/log/data response
-    // has no equivalent fields at all. Driver name reasonably defaults to
-    // the logged-in driver (this form is for their own day's log); carrier
-    // name and office addresses have no current source and are left blank
-    // pending either a backend field or a separate profile/carrier
-    // endpoint — worth flagging to the backend team rather than guessing.
+    
     const [driverName, setDriverName] = useState<string>(
         `${userData?.first_name ?? ''} ${userData?.last_name ?? ''}`.trim()
     );
@@ -106,24 +101,24 @@ const SingleActivity = () => {
     // The day's chart/log/violation data now comes straight from the
     // record passed via navigation (Compliance/index.tsx already has it
     // loaded) — no separate fetch needed here anymore.
-    const lineObject = useMemo(
-        () =>
-            (record?.log.graph_data ?? []).map((entry) => ({
-                start: entry.start_log_time,
-                end: entry.end_log_time,
-                status: entry.shift_id
-            })),
-        [record]
-    );
+    // const lineObject = useMemo(
+    //     () =>
+    //         (record?.log.graph_data ?? []).map((entry) => ({
+    //             start: entry.start_log_time,
+    //             end: entry.end_log_time,
+    //             status: entry.shift_id
+    //         })),
+    //     [record]
+    // );
 
-    const violations = useMemo(
-        () =>
-            (record?.log.violation_data.Shift_data ?? []).map((violation) => ({
-                start: moment(violation.violation_startTime).format('HH:mm'),
-                end: moment(violation.violation_endTime).format('HH:mm')
-            })),
-        [record]
-    );
+    // const violations = useMemo(
+    //     () =>
+    //         (record?.log.violation_data.Shift_data ?? []).map((violation) => ({
+    //             start: moment(violation.violation_startTime).format('HH:mm'),
+    //             end: moment(violation.violation_endTime).format('HH:mm')
+    //         })),
+    //     [record]
+    // );
 
     const uploadImage = async (base64String: string) => {
         const mimeTypeMatch = base64String.match(/data:(.*);base64/);
@@ -206,11 +201,16 @@ const SingleActivity = () => {
                         />
                     ) : null}
 
-                    <HOSChart
+                    {/* <HOSChart
                         lineObject={lineObject}
                         violations={violations}
                         vehicleName={record?.log.vehicle?.[0]?.name}
-                    />
+                    /> */}
+                    <HOSChart
+                            lineObject={transformHOSGraphData(record?.log.graph_data)}
+                            violations={transformViolations(record?.log.violation_data.Shift_data)}
+                            vehicleName={record?.log.vehicle?.[0]?.name}
+                        />
 
                     <View
                         style={{

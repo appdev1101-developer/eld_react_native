@@ -17,10 +17,12 @@ import NavigationService from '../../Services/Navigation';
 import { FONTS } from '../../Constants/Fonts';
 import ActivityCard from '../../Components/Compliance/ActivityCard';
 import moment from 'moment';
-import HOSChart from '../../Components/Compliance/HOSChart';
+
 import { useCompliance } from '../../core/hooks/useCompliance';
 import { HosDayRecord } from '../../core/api/types/hosLog';
 import { THEME, GRADIENT_HEADER } from '../../Constants/Theme';
+import HOSChart from '../../Components/Compliance/HOSChart';
+import { transformHOSGraphData, transformViolations } from '../../Utils/hos_chart/hosChartTransformer';
 
 const Compliance = () => {
     const {
@@ -100,7 +102,7 @@ const Compliance = () => {
                             />
                         ) : null}
 
-                        <HOSChart
+                        {/* <HOSChart
                             lineObject={(todayRecord?.log.graph_data ?? []).map((entry) => ({
                                 start: entry.start_log_time,
                                 end: entry.end_log_time,
@@ -112,6 +114,12 @@ const Compliance = () => {
                                 start: moment(violation.violation_startTime).format('HH:mm'),
                                 end: moment(violation.violation_endTime).format('HH:mm')
                             }))}
+                            vehicleName={todayRecord?.log.vehicle?.[0]?.name}
+                        /> */}
+
+                        <HOSChart
+                            lineObject={transformHOSGraphData(todayRecord?.log.graph_data)}
+                            violations={transformViolations(todayRecord?.log.violation_data.Shift_data)}
                             vehicleName={todayRecord?.log.vehicle?.[0]?.name}
                         />
 
