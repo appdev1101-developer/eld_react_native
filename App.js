@@ -7,7 +7,7 @@ import AppStatusBar from './App/Components/AppStatusBar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import SessionManager from './App/core/session/SessionManager';
-import { performLogout } from './App/core/hooks/useSession';
+import { performLogoutWithoutAPI } from './App/core/hooks/useSession';
 import { useRealtime } from './App/core/hooks/useRealtime';
 import { useDashboard } from './App/core/hooks/useDashboard';
 import { setDashboardHos } from './App/Redux/reducer/Dashboard';
@@ -53,7 +53,7 @@ const App = () => {
                 {
                     text: 'OK',
                     onPress: () => {
-                        performLogout(dispatch);
+                        performLogoutWithoutAPI(dispatch);
                     }
                 }
             ]

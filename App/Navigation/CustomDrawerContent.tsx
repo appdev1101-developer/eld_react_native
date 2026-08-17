@@ -168,15 +168,7 @@ const CustomDrawerContent: React.FC<Props> = (props) => {
                             style={styles.imgStyle}
                             tintColor={item.color}
                         />
-
-                        <Text
-                            style={[
-                                styles.itemText,
-                                {
-                                    color: item.color ?? '#392969'
-                                }
-                            ]}
-                        >
+                        <Text style={ styles.itemText} >
                             {item.title}
                         </Text>
                     </Pressable>
@@ -218,6 +210,7 @@ const styles = StyleSheet.create({
     itemText: {
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(14),
-        marginLeft: moderateScale(15)
+        marginLeft: moderateScale(15),
+        color: '#392969'
     }
 });

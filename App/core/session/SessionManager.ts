@@ -40,7 +40,7 @@ async function teardownSession(): Promise<void> {
     } catch (error) {
         //if (__DEV__) 
         {
-            console.warn('SessionManager.teardownSession failed:', error);
+            console.log('SessionManager.teardownSession failed:', error);
         }
     } finally {
         isTearingDown = false;

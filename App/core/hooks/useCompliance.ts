@@ -10,21 +10,19 @@ import {
     setComplianceCache
 } from '../cache/complianceCache';
 
-function splitHosLogData(records: HosDayRecord[]) {
-    const todayKey = moment().format('YYYY-MM-DD');
-    const todayRecord = records.find((record) => record.date === todayKey) ?? null;
-    const hosRecords = records.filter((record) => record.date !== todayKey);
-    return { todayRecord, hosRecords };
-}
+// function splitHosLogData(records: HosDayRecord[]) {
+//     const todayKey = moment().format('YYYY-MM-DD');
+//     const todayRecord = records.find((record) => record.date === todayKey) ?? null;
+//     const hosRecords = records.filter((record) => record.date !== todayKey);
+//     return { todayRecord, hosRecords };
+// }
 
 export function useCompliance() {
-    const [todayRecord, setTodayRecord] = useState<HosDayRecord | null>(null);
     const [hosRecords, setHosRecords] = useState<HosDayRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     const applyCache = useCallback((cached: ComplianceCachedData) => {
-        setTodayRecord(cached.todayRecord);
         setHosRecords(cached.hosRecords);
         setLoading(false);
     }, []);
@@ -53,20 +51,12 @@ export function useCompliance() {
                 // most recent entry in the same array.
                 const result = await hosApi.getLogData();
 
-                let nextToday: HosDayRecord | null = null;
-                let nextHos: HosDayRecord[] = [];
-
                 if (isSuccess(result)) {
-                    const split = splitHosLogData(result.data);
-                    nextToday = split.todayRecord;
-                    nextHos = split.hosRecords;
-                    setTodayRecord(nextToday);
-                    setHosRecords(nextHos);
+                    setHosRecords(result.data);
                 }
 
                 const cached: ComplianceCachedData = {
-                    todayRecord: nextToday,
-                    hosRecords: nextHos,
+                    hosRecords: result.data,
                     fetchedAt: Date.now()
                 };
                 setComplianceCache(cached);
@@ -91,7 +81,6 @@ export function useCompliance() {
     }, [fetchCompliance]);
 
     return {
-        todayRecord,
         hosRecords,
         loading,
         refreshing,

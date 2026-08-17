@@ -37,6 +37,13 @@ export async function performLogout(dispatch: AppDispatch): Promise<void> {
     dispatch(logout());
 }
 
+// Because in that we have old auth token which expired thats why we are requesting logout endpoint
+// instead manually end the session on user side
+export async function performLogoutWithoutAPI(dispatch: AppDispatch): Promise<void> {
+    await SessionManager.endSession();
+    dispatch(logout());
+}
+
 export function useSession() {
     const dispatch = useDispatch<AppDispatch>();
     const session = useSelector((state: RootState) => state.User);
