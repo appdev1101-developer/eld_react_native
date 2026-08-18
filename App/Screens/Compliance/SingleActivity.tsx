@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Container } from 'react-native-basic-elements';
 import LinearGradient from 'react-native-linear-gradient';
@@ -22,6 +22,7 @@ import { certifyActivityLog, updateActivity } from '../../core/api/services/sing
 import ActivityTabs from '../../Components/Compliance/ActivityTabs';
 import SingleActivityContent from '../../Components/Compliance/SingleActivityContent';
 import Util from '../../Utils/util';
+
 
 
 
@@ -134,8 +135,9 @@ const SingleActivity = () => {
                     />
 
                     <SingleActivityContent
+                        onEditLog={(log)=>{console.log("Edit pressed"+log.log_name)}}
                         tab={selectedTab}
-                        record={record}
+                        record={record?.log.graph_data}
                         timezone={configData?.timezone ?? ''}
                         formValues={form.values}
                         coDrivers={form.coDrivers}

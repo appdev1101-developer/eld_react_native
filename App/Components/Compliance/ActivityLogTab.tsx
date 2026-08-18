@@ -1,107 +1,74 @@
 import React, { useCallback, useMemo } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-basic-elements';
-import moment from 'moment-timezone';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
-import { HosDayRecord } from '../../core/api/types/hosLog';
-import Util from '../../Utils/util';
+import ActivityLogItem from './ActivityLogItem';
+import { HosGraphLogEntry } from '../../core/api/types/hosLog';
 
 
 interface Props {
-    record?: HosDayRecord;
+    logs: HosGraphLogEntry[];
     timezone: string;
+    onEditLog: (log: HosGraphLogEntry) => void;
 }
 
-const ActivityLogTab: React.FC<Props> = ({ record, timezone }) => {
-    const data = record?.log.graph_data ?? [];
 
-    const renderItem = useCallback(({ item }: { item: typeof data[number] }) => (
-        <View style={styles.row}>
-            <View style={styles.status}>
-                <Text style={styles.statusText}>{item.log_name}</Text>
-            </View>
+const ActivityLogTab: React.FC<Props> = ({logs,timezone, onEditLog }) => {
+    
+    const renderItem = useCallback(({ item }: { item: HosGraphLogEntry }) => (
+        <ActivityLogItem
+                item={item}
+                timezone={timezone}
+                onEdit={onEditLog}
+            />
+    ), [timezone, onEditLog]);
 
-            <View style={styles.content}>
-                <Text style={styles.time}>
-                    {Util.formatLogTimeRange(
-                        record?.date ?? '',
-                        item.start_log_time,
-                        item.end_log_time,
-                        timezone || moment.tz.guess()
-                    )}
-                </Text>
-
-                <Text style={styles.location}>
-                    {item.location_start ?? 'No location'}
-                </Text>
-            </View>
-        </View>
-    ), [record?.date, timezone]);
-
-    const separator = useMemo(
-        () => <View style={styles.separator} />,
+    const keyExtractor = useCallback(
+        (item: HosGraphLogEntry) => String(item.log_id),
         []
     );
 
+    if (!logs.length) {
+        return (
+            <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                    No activity logs found.
+                </Text>
+            </View>
+        );
+    }
+    
     return (
         <FlatList
-            data={data}
-            keyExtractor={item => String(item.log_id)}
+            data={logs}
+            keyExtractor={keyExtractor}
             renderItem={renderItem}
-            ItemSeparatorComponent={() => separator}
-            contentContainerStyle={styles.list}
-            ListEmptyComponent={
-                <Text style={styles.empty}>No log records available.</Text>
-            }
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+            removeClippedSubviews
         />
     );
 };
 
 const styles = StyleSheet.create({
-    list: {
+    listContent: {
         paddingBottom: moderateScale(20)
     },
-    row: {
-        flexDirection: 'row',
+
+    emptyContainer: {
+        flex: 1,
         alignItems: 'center',
-        paddingVertical: moderateScale(10)
+        justifyContent: 'center'
     },
-    status: {
-        width: moderateScale(85),
-        alignItems: 'center'
-    },
-    statusText: {
-        color: '#33404F',
-        fontSize: moderateScale(12),
+
+    emptyText: {
+        color: '#929BA8',
         fontFamily: FONTS.ProductSans.regular,
-        opacity: 0.5
-    },
-    content: {
-        flex: 1
-    },
-    time: {
-        fontFamily: FONTS.ProductSans.bold,
-        fontSize: moderateScale(15),
-        color: '#33404F'
-    },
-    location: {
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(12),
-        color: '#33404F',
-        opacity: 0.5,
-        marginTop: moderateScale(5)
-    },
-    separator: {
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: '#C4C4C4'
-    },
-    empty: {
-        textAlign: 'center',
-        marginTop: moderateScale(20),
-        color: '#33404F'
+        fontSize: moderateScale(14)
     }
 });
+
 
 export default ActivityLogTab;
 

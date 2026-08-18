@@ -1,5 +1,5 @@
 import React from 'react';
-import { HosDayRecord } from '../../core/api/types/hosLog';
+import { HosDayRecord, HosGraphLogEntry } from '../../core/api/types/hosLog';
 import ActivityFormTab from './ActivityFormTab';
 import ActivityLogTab from './ActivityLogTab';
 import ActivitySignTab from './ActivitySignTab';
@@ -7,9 +7,10 @@ import { CoDriver, EditActivityFormValues, SingleActivityTab } from '../../core/
 
 
 interface Props {
-    tab: SingleActivityTab;
-    record?: HosDayRecord;
     timezone: string;
+    onEditLog: (log: HosGraphLogEntry) => void;
+    tab: SingleActivityTab;
+    record?: HosGraphLogEntry[];
     formValues: EditActivityFormValues;
     coDrivers: CoDriver[];
     onFormChange: any;
@@ -22,8 +23,9 @@ const SingleActivityContent: React.FC<Props> = props => {
         case 'log':
             return (
                 <ActivityLogTab
-                    record={props.record}
+                    logs={props.record ?? []}
                     timezone={props.timezone}
+                    onEditLog={props.onEditLog}
                 />
             );
 
