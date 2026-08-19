@@ -39,7 +39,9 @@ export const API = {
         logData: () => `hos/mobile/log/data`,
         unsignedLogs: () => 'hos/log/unsigned',
         certifyLog: (date: string) => `hos/log/unsigned/certify/${date}`,
-        editActivity: () => 'hos/form/edit/activity'
+        editActivity: () => 'hos/form/edit/activity',
+        editDutyStatusLog: (logId: number | string) =>
+            `hos/form/edit/duty-status/${logId}`
     },
     inspection: {
         createForm: () => 'driver/mobile/inspection/create',

@@ -12,6 +12,7 @@ import UnsignedLog from '../Screens/Home/UnsignedLog';
 import ApprovalRequestLogs from '../Screens/Home/ApprovalRequestLogs';
 import InspectionHistory from '../Screens/Home/InspectionHistory';
 import InspectionHistoryDetail from '../Screens/Home/InspectionHistoryDetail';
+import EditDutyStatusLogScreen from '../Screens/Compliance/EditDutyStatusLogScreen';
 
 const Stack = createStackNavigator();
 
@@ -43,6 +44,10 @@ const HomeStack = () => {
                 options={{
                     unmountOnBlur: true
                 }}
+            />
+             <Stack.Screen
+                name="EditDutyStatusLog"
+                component={EditDutyStatusLogScreen}
             />
             <Stack.Screen
                 name="Safety"

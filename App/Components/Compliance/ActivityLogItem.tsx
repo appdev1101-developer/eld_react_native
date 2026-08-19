@@ -16,6 +16,7 @@ import moment from 'moment-timezone';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import { HosGraphLogEntry } from '../../core/api/types/hosLog';
+import { REFERENCE_DATE } from '../../Utils/util';
 
 interface Props {
     item: HosGraphLogEntry;
@@ -62,7 +63,7 @@ const ActivityLogItem: React.FC<Props> = ({
 
         return moment
             .tz(
-                `2000-01-01 ${time}`,
+                `${REFERENCE_DATE} ${time}`,
                 'YYYY-MM-DD HH:mm:ss',
                 timezone
             )

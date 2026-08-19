@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Container } from 'react-native-basic-elements';
 import LinearGradient from 'react-native-linear-gradient';
-import { useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 
 import AppStatusBar from '../../Components/AppStatusBar';
@@ -11,7 +11,7 @@ import ActivityCard from '../../Components/Compliance/ActivityCard';
 import HOSChart from '../../Components/Compliance/HOSChart';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { GRADIENT_HEADER } from '../../Constants/Theme';
-import { HosDayRecord } from '../../core/api/types/hosLog';
+import { HosDayRecord, HosGraphLogEntry } from '../../core/api/types/hosLog';
 import { RootState } from '../../Redux/store';
 import { useAppConfig } from '../../core/hooks/useAppConfig';
 import { transformHOSGraphData, transformViolations } from '../../Utils/hos_chart/hosChartTransformer';
@@ -28,6 +28,7 @@ import Util from '../../Utils/util';
 
 const SingleActivity = () => {
     const route = useRoute<any>();
+    const navigation = useNavigation<any>();
     const record: HosDayRecord | undefined = route.params?.record;
     const { userInfo } = useSelector((state: RootState) => state.User);
     const { configData } = useAppConfig();
@@ -84,6 +85,20 @@ const SingleActivity = () => {
         }
     }, [record?.date]);
 
+    const handleEditLog = useCallback(
+        (log: HosGraphLogEntry) => {
+            if (!record) {
+                return;
+            }
+            navigation.navigate('EditDutyStatusLog', {
+                log,
+                record,
+                timezone: configData?.timezone ?? ''
+            });
+        },
+        [navigation, record, configData?.timezone]
+    );
+
     const chartLines = transformHOSGraphData(
         record?.log.graph_data
     );
@@ -135,7 +150,7 @@ const SingleActivity = () => {
                     />
 
                     <SingleActivityContent
-                        onEditLog={(log)=>{console.log("Edit pressed"+log.log_name)}}
+                        onEditLog={handleEditLog}
                         tab={selectedTab}
                         record={record?.log.graph_data}
                         timezone={configData?.timezone ?? ''}

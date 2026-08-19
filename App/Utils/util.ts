@@ -1,6 +1,7 @@
 import moment from "moment";
 import { EditActivityFormValues, EditActivityPayload } from "../core/api/types/singleActivity";
 
+export const REFERENCE_DATE = '2000-01-01';
 
 function convertToDayFormat(date: string, timezone?: string) : string
 {
@@ -106,7 +107,8 @@ const Util= {
     convertToTimeFormat,
     formatLogTimeRange,
     createEditActivityPayload,
-    parseSignatureData
+    parseSignatureData,
+    REFERENCE_DATE
 }
 
 export default Util;

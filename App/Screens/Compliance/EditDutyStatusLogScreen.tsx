@@ -1,292 +1,269 @@
-// import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 
-// import {
-//     ActivityIndicator,
-//     Alert,
-//     KeyboardAvoidingView,
-//     Platform,
-//     ScrollView,
-//     StyleSheet,
-//     View
-// } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    View
+} from 'react-native';
 
-// import {
-//     Button,
-//     Text
-// } from 'react-native-basic-elements';
+import { AppButton, Container } from 'react-native-basic-elements';
+import LinearGradient from 'react-native-linear-gradient';
 
-// import {
-//     RouteProp,
-//     useNavigation,
-//     useRoute
-// } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 
-// import EditDutyStatusHeader from './components/EditDutyStatusHeader';
-// import TimeField from './components/TimeField';
-// import DutyStatusSelector from './components/DutyStatusSelector';
-// import LocationField from './components/LocationField';
-// import NotesField from './components/NotesField';
+import HOSChart from '../../Components/Compliance/HOSChart';
 
-// import {
-//     useEditDutyStatus
-// } from './hooks/useEditDutyStatus';
+import { moderateScale } from '../../Constants/PixelRatio';
+import { FONTS } from '../../Constants/Fonts';
+import {
+    transformHOSGraphData,
+    transformViolations
+} from '../../Utils/hos_chart/hosChartTransformer';
+import { EditDutyStatusNavigationParams } from '../../core/api/types/editDutyStatus';
+import { useEditDutyStatus } from '../../core/hooks/useEditDutyStatus';
+import { updateDutyStatus } from '../../core/api/services/editDutyStatus';
+import EditDutyStatusHeader from '../../Components/Headers/EditDutyStatusHeader';
+import TimeField from '../../Components/UI/TimeField';
+import DutyStatusSelector from '../../Components/UI/DutyStatusSelector';
+import LocationField from '../../Components/UI/LocationField';
+import NotesField from '../../Components/UI/NotesField';
+import AppStatusBar from '../../Components/AppStatusBar';
+import HomeHeader from '../../Components/Headers/HomeHeader';
+import { GRADIENT_HEADER } from '../../Constants/Theme';
+import moment from 'moment';
+import { REFERENCE_DATE } from '../../Utils/util';
+import ConfirmDutyStatusDialog from '../../Components/EditDutyStatusLog/ConfirmDutyStatusDialog';
 
-// import {
-//     updateDutyStatus
-// } from './services/editDutyStatus.service';
+type RouteParams = {
+    EditDutyStatusLog: EditDutyStatusNavigationParams;
+};
 
-// import {
-//     EditDutyStatusNavigationParams
-// } from './types/editDutyStatus.types';
+const EditDutyStatusLogScreen: React.FC = () => {
+    const navigation = useNavigation();
 
-// import {
-//     moderateScale
-// } from '../../Constants/PixelRatio';
+    const route = useRoute<RouteProp<RouteParams, 'EditDutyStatusLog'>>();
+    const { log, record, timezone } = route.params;
 
-// import {
-//     FONTS
-// } from '../../Constants/Fonts';
+    
 
-// type RouteParams = {
-//     EditDutyStatus: EditDutyStatusNavigationParams;
-// };
+    const {
+        form,
+        saving,
+        setSaving,
+        setStartTime,
+        setEndTime,
+        setDutyStatus,
+        setLocation,
+        setNotes
+    } = useEditDutyStatus(log);
 
-// const EditDutyStatusLogScreen: React.FC = () => {
-//     const navigation = useNavigation();
+    // The chart shows the whole day, not just this one log entry — reusing
+    // the exact same transformers SingleActivity.tsx uses so this stays in
+    // sync with the real chart's data contract rather than duplicating it.
+    const chartLines = transformHOSGraphData(record?.log.graph_data);
+    const violations = transformViolations(record?.log.violation_data?.Shift_data);
+    const minTime= moment(`${REFERENCE_DATE} ${log.start_log_time}`, "YYYY-MM-DD HH:mm:ss").toDate();
+    const maxTime= moment(`${REFERENCE_DATE} ${log.end_log_time}`, "YYYY-MM-DD HH:mm:ss").toDate();
+    
+    const [confirmVisible, setConfirmVisible] = useState(false);
 
-//     const route =
-//         useRoute<
-//             RouteProp<
-//                 RouteParams,
-//                 'EditDutyStatus'
-//             >
-//         >();
+    const handleSave = useCallback(() => {
+        if (!form.location.trim()) {
+            Alert.alert('Validation', 'Location is required.');
+            return;
+        }
 
-//     const { log } = route.params;
+        if (form.endTime.getTime() < form.startTime.getTime()) {
+            Alert.alert('Validation', 'End time cannot be earlier than start time.');
+            return;
+        }
+        // Validation passed — ask for confirmation before this actually
+        // reaches the endpoint. The API call itself lives in performSave,
+        // which is only ever invoked from the dialog's "Yes" button, so
+        // there's no path from tapping Save straight to a network request.
+        setConfirmVisible(true);
+        
+    },[form]);
 
-//     const {
-//         form,
-//         saving,
-//         setSaving,
-//         setStartTime,
-//         setEndTime,
-//         setDutyStatus,
-//         setLocation,
-//         setNotes
-//     } = useEditDutyStatus(log);
 
-//     const handleSave = useCallback(
-//         async () => {
-//             if (!form.location.trim()) {
-//                 Alert.alert(
-//                     'Validation',
-//                     'Location is required.'
-//                 );
-//                 return;
-//             }
+    const performSave = useCallback(async () => {
+        setConfirmVisible(false);
+ 
+        try {
+            setSaving(true);
+ 
+            const result = await updateDutyStatus(log, record.date, form);
+ 
+            if (result.success) {
+                Alert.alert('Success', result.message ?? 'Duty status updated successfully.', [
+                    {
+                        text: 'OK',
+                        onPress: () => navigation.goBack()
+                    }
+                ]);
+            } else if (result.message) {
+                Alert.alert('Error', result.message);
+            }
+        } catch (error) {
+            if (__DEV__) {
+                console.warn('Failed to update duty status', error);
+            }
+            Alert.alert('Error', 'Unable to update duty status. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    }, [form, log, record?.date, navigation, setSaving]);
 
-//             if (
-//                 form.endTime.getTime() <
-//                 form.startTime.getTime()
-//             ) {
-//                 Alert.alert(
-//                     'Validation',
-//                     'End time cannot be earlier than start time.'
-//                 );
-//                 return;
-//             }
+    return (
+        <Container>
+            <AppStatusBar />
 
-//             try {
-//                 setSaving(true);
+            <LinearGradient
+                colors={GRADIENT_HEADER}
+                style={{flex:1}}
+            >
+                <HomeHeader showBack />
+                <KeyboardAvoidingView
+                    style={styles.container}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                >
+                    <EditDutyStatusHeader
+                        onBack={() => navigation.goBack()}
+                        totalShiftTime={record?.log.total_log_time}
+                        isInspectionPending={record?.log.inspection_exist}
+                    />
 
-//                 const response =
-//                     await updateDutyStatus(
-//                         log,
-//                         form
-//                     );
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        contentContainerStyle={styles.content}
+                    >
+                        {/*
+                            Reuses the existing HOSChart component with the full
+                            day's data — this screen does not rebuild or duplicate
+                            chart-drawing logic.
+                        */}
+                        <View style={styles.chartContainer}>
+                            <HOSChart
+                                lineObject={chartLines}
+                                violations={violations}
+                                vehicleName={record?.log.vehicle?.[0]?.name}
+                            />
+                        </View>
 
-//                 if (response) {
-//                     Alert.alert(
-//                         'Success',
-//                         'Duty status updated successfully.',
-//                         [
-//                             {
-//                                 text: 'OK',
-//                                 onPress: () =>
-//                                     navigation.goBack()
-//                             }
-//                         ]
-//                     );
-//                 }
-//             } catch (error) {
-//                 if (__DEV__) {
-//                     console.warn(
-//                         'Failed to update duty status',
-//                         error
-//                     );
-//                 }
+                        <View style={styles.timeRow}>
+                            <TimeField
+                                label="Start Time"
+                                value={form.startTime}
+                                timezoneLabel={timezone || 'GMT'}
+                                minTime={minTime}
+                                maxTime={maxTime}
+                                onChange={setStartTime}
+                            />
 
-//                 Alert.alert(
-//                     'Error',
-//                     'Unable to update duty status. Please try again.'
-//                 );
-//             } finally {
-//                 setSaving(false);
-//             }
-//         },
-//         [
-//             form,
-//             log,
-//             navigation,
-//             setSaving
-//         ]
-//     );
+                            <View style={styles.timeGap} />
 
-//     return (
-//         <KeyboardAvoidingView
-//             style={styles.container}
-//             behavior={
-//                 Platform.OS === 'ios'
-//                     ? 'padding'
-//                     : undefined
-//             }
-//         >
-//             <EditDutyStatusHeader
-//                 onBack={() =>
-//                     navigation.goBack()
-//                 }
-//             />
+                            <TimeField
+                                label="End Time"
+                                value={form.endTime}
+                                timezoneLabel={timezone || 'GMT'}
+                                minTime={minTime}
+                                maxTime={maxTime}
+                                onChange={setEndTime}
+                            />
+                        </View>
 
-//             <ScrollView
-//                 showsVerticalScrollIndicator={false}
-//                 keyboardShouldPersistTaps="handled"
-//                 contentContainerStyle={
-//                     styles.content
-//                 }
-//             >
-//                 {/* 
-//                     IMPORTANT:
-//                     Reuse your existing working HOSChart here.
+                        <DutyStatusSelector
+                            value={form.dutyStatus}
+                            onChange={setDutyStatus}
+                        />
 
-//                     Do NOT rebuild the chart specifically
-//                     for this screen.
-//                 */}
+                        <LocationField
+                            value={form.location}
+                            onChange={setLocation}
+                        />
 
-//                 <View style={styles.chartContainer}>
-//                     {/* 
-//                         <HOSChart
-//                             ...
-//                         />
-//                     */}
-//                 </View>
+                        <NotesField
+                            value={form.notes}
+                            onChange={setNotes}
+                        />
 
-//                 <View style={styles.timeRow}>
-//                     <TimeField
-//                         label="Start Time"
-//                         value={form.startTime}
-//                         timezoneLabel="GMT"
-//                         onChange={setStartTime}
-//                     />
+                        <AppButton
+                            title={saving ? 'Saving...' : 'Save'}
+                            disabled={saving}
+                            onPress={handleSave}
+                            style={styles.saveButton}
+                            textStyle={styles.saveButtonText}
+                        />
+                    </ScrollView>
 
-//                     <View
-//                         style={styles.timeGap}
-//                     />
+                    {saving && (
+                        <View style={styles.loadingOverlay}>
+                            <ActivityIndicator size="large" color="#FFFFFF" />
+                        </View>
+                    )}
 
-//                     <TimeField
-//                         label="End Time"
-//                         value={form.endTime}
-//                         timezoneLabel="GMT"
-//                         onChange={setEndTime}
-//                     />
-//                 </View>
+                    <ConfirmDutyStatusDialog
+                        visible={confirmVisible}
+                        message="Do you want to insert a past duty status?"
+                        cancelLabel="No"
+                        confirmLabel="Yes"
+                        onCancel={() => setConfirmVisible(false)}
+                        onConfirm={performSave}
+                    />
 
-//                 <DutyStatusSelector
-//                     value={form.dutyStatus}
-//                     onChange={setDutyStatus}
-//                 />
+                </KeyboardAvoidingView>
+            </LinearGradient>
+            </Container>
+    );
+};
 
-//                 <LocationField
-//                     value={form.location}
-//                     onChange={setLocation}
-//                 />
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#FFFFFF'
+    },
 
-//                 <NotesField
-//                     value={form.notes}
-//                     onChange={setNotes}
-//                 />
+    content: {
+        paddingHorizontal: moderateScale(14),
+        paddingBottom: moderateScale(30),
+        gap: moderateScale(25)
+    },
 
-//                 <Button
-//                     title={
-//                         saving
-//                             ? 'Saving...'
-//                             : 'Save'
-//                     }
-//                     disabled={saving}
-//                     onPress={handleSave}
-//                     style={styles.saveButton}
-//                     textStyle={
-//                         styles.saveButtonText
-//                     }
-//                 />
-//             </ScrollView>
+    chartContainer: {
+        marginHorizontal: moderateScale(-14)
+    },
 
-//             {saving && (
-//                 <View
-//                     style={styles.loadingOverlay}
-//                 >
-//                     <ActivityIndicator
-//                         size="large"
-//                         color="#FFFFFF"
-//                     />
-//                 </View>
-//             )}
-//         </KeyboardAvoidingView>
-//     );
-// };
+    timeRow: {
+        flexDirection: 'row'
+    },
 
-// const styles = StyleSheet.create({
-//     container: {
-//         flex: 1,
-//         backgroundColor: '#FFFFFF'
-//     },
+    timeGap: {
+        width: moderateScale(14)
+    },
 
-//     content: {
-//         paddingHorizontal: moderateScale(14),
-//         paddingBottom: moderateScale(30),
-//         gap: moderateScale(25)
-//     },
+    saveButton: {
+        height: moderateScale(56),
+        borderRadius: moderateScale(15),
+        backgroundColor: '#1475ED'
+    },
 
-//     chartContainer: {
-//         height: moderateScale(120),
-//         marginHorizontal: moderateScale(-14)
-//     },
+    saveButtonText: {
+        color: '#FFFFFF',
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(18)
+    },
 
-//     timeRow: {
-//         flexDirection: 'row'
-//     },
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.25)',
+        alignItems: 'center',
+        justifyContent: 'center'
+    }
+});
 
-//     timeGap: {
-//         width: moderateScale(14)
-//     },
-
-//     saveButton: {
-//         height: moderateScale(74),
-//         borderRadius: moderateScale(15),
-//         backgroundColor: '#1475ED'
-//     },
-
-//     saveButtonText: {
-//         color: '#FFFFFF',
-//         fontFamily: FONTS.ProductSans.regular,
-//         fontSize: moderateScale(24)
-//     },
-
-//     loadingOverlay: {
-//         ...StyleSheet.absoluteFillObject,
-//         backgroundColor: 'rgba(0,0,0,0.25)',
-//         alignItems: 'center',
-//         justifyContent: 'center'
-//     }
-// });
-
-// export default EditDutyStatusLogScreen;
+export default EditDutyStatusLogScreen;
