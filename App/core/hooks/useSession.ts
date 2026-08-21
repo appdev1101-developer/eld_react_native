@@ -14,15 +14,28 @@ import {
 import SessionManager from '../session/SessionManager';
 import { getIsOnline } from '../network/networkMonitor';
 import type { AppDispatch } from '../../Redux/store';
+import { logger } from '../logger';
+import { setContextBatch } from '../logger/index';
 
 export type LoginAttemptResult =
     | { conflict: true; data: LoginLegacyResult }
     | { success: true; message: string; user: UserDataType }
     | { success: false; message: string };
 
-export async function performLogout(dispatch: AppDispatch): Promise<void> {
-    const logSessionId = await SessionManager.getLogSessionId();
+export const sendDebugCrashlyticsTest = async() => {
+  
+  logger.log('[Crashlytics TEST] Creating test non-fatal report');
 
+  logger.recordError(
+    new Error('DEBUG_SESSION_LOG_TEST'),
+    'DebugSessionTest',
+  );
+};
+
+export async function performLogout(dispatch: AppDispatch): Promise<void> {
+    
+    sendDebugCrashlyticsTest();
+    const logSessionId = await SessionManager.getLogSessionId();
     if (logSessionId && getIsOnline()) {
         try {
             await authApi.logoutLegacy(logSessionId);

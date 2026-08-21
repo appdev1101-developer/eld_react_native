@@ -212,10 +212,10 @@ const CreateGroupChat = () => {
                         }
                     >
                         <Text
-                            style={[
-                                styles.chipText,
-                                activeChip === chip && styles.chipTextActive
-                            ]}
+                            style={{
+                                ...styles.chipText,
+                                ...(activeChip === chip && styles.chipTextActive)}
+                            }
                         >
                             {chip}
                         </Text>

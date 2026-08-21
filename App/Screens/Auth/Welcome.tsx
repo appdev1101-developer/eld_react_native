@@ -7,8 +7,10 @@ import { FONTS } from '../../Constants/Fonts';
 import NavigationService from '../../Services/Navigation';
 import { THEME } from '../../Constants/Theme';
 import {  logger,isCrashlyticsEnabled } from '../../core/logger';
+import { sendDebugCrashlyticsTest } from '../../core/hooks/useSession';
 
 const Welcome = () => {
+
     return (
         <ImageBackground
             source={require('../../Assets/LandingBackground.png')}
@@ -41,8 +43,8 @@ const Welcome = () => {
                     textStyle={styles.secondaryBtnText}
                     style={styles.secondaryBtn}
                     onPress={() => {
-                        isCrashlyticsEnabled() ?
-                        logger.testCrash() : console.log("Not enabled")
+                        sendDebugCrashlyticsTest()
+                        //console.log("Crashlytics enabled");
                      }
                     }
                 />

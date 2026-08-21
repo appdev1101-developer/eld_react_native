@@ -3,6 +3,6 @@
   "compilerOptions": {
     "types": ["react-native", "jest"]
   },
-  "include": ["**/*.ts", "**/*.tsx", "types/**/*.d.ts"],
+  "include": ["**/*.ts", "**/*.tsx", "types/**/*.d.ts", "App/Navigation/AuthStack.js"],
   "exclude": ["**/node_modules", "**/Pods", "android", "ios"]
 }

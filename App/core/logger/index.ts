@@ -33,7 +33,7 @@ let enabled = false;
 
 export async function initCrashlytics(options?: { forceEnableInDev?: boolean }) {
     const shouldEnable = !__DEV__ || options?.forceEnableInDev === true;
-    await setCrashlyticsCollectionEnabled(crashlyticsInstance, shouldEnable);
+    await setCrashlyticsCollectionEnabled(crashlyticsInstance, options?.forceEnableInDev ?? false);
     enabled = shouldEnable;
     logger.log(`Crashlytics initialized (enabled=${shouldEnable})`);
 }
@@ -106,10 +106,20 @@ function testCrash() {
     console.log(">>>>>>>> Test crash executed")
 }
 
+function realCrash() {
+    if (!__DEV__) {
+        return;
+    }
+    console.log(">>>>>>>> Real native crash executed")
+    crashlyticsInstance.crash();
+}
+
 export const logger = {
     log,
     recordError,
-    testCrash
+    // testCrash,
+    // realCrash,
+    
 };
 
 export function isCrashlyticsEnabled() {

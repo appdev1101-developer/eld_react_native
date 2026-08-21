@@ -2,6 +2,8 @@ import {
     ActivityIndicator,
     Image,
     ImageSourcePropType,
+    KeyboardAvoidingView,
+    Platform,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -34,6 +36,9 @@ import { showError, showToast } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { email as validateEmail, firstInvalid, required } from '../../Utils/validators';
 import { useAppConfig } from '../../core/hooks/useAppConfig';
+import LinearGradient from 'react-native-linear-gradient';
+import { GRADIENT_HEADER } from '../../Constants/Theme';
+import HomeHeader from '../../Components/Headers/HomeHeader';
 
 const SETTING_ITEMS: Array<{
     title: string;
@@ -210,345 +215,356 @@ const AccountSetting = ({
     return (
         <Container>
             <AppStatusBar />
-            <BackHeader title={headerTitle} showBack={showBack} />
 
-            <ScrollView
-                keyboardShouldPersistTaps="handled"
-                refreshControl={
-                    <RefreshControl
-                            refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        colors={['#392969']}
-                        tintColor="#392969"
-                    />
-                }
+            <LinearGradient
+                colors={GRADIENT_HEADER}
+                style={{flex:1}}
             >
-                <View style={styles.profileContainer}>
-                    <Image
-                        source={getUserAvatarSource(userData?.avatar_image)}
-                        style={{
-                            height: moderateScale(65),
-                            width: moderateScale(65),
-                            borderRadius: moderateScale(65 / 2)
-                        }}
-                        resizeMode="cover"
-                    />
-
-                    <Text
-                        style={{
-                            fontFamily: FONTS.ProductSans.regular,
-                            fontSize: moderateScale(20),
-                            width: '50%',
-                            marginLeft: moderateScale(13),
-                            color: colors.buttonColor
-                        }}
-                    >
-                        {`${firstName} ${lastName}`.trim() || 'Profile'}
-                    </Text>
-                </View>
-
-                <View
-                    style={{
-                        marginHorizontal: moderateScale(10)
-                    }}
+            <HomeHeader showBack />
+            <KeyboardAvoidingView
+                    style={styles.container}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 >
-                    <Text
-                        style={{
-                            fontFamily: FONTS.ProductSans.bold,
-                            fontSize: moderateScale(15)
-                        }}
-                    >
-                        Personal Information
-                    </Text>
-
-                    <AppTextInput.Outlined
-                        placeholder="First Name"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={firstName}
-                        onChangeText={setFirstName}
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="Last Name"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={lastName}
-                        onChangeText={setLastName}
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="Email Address"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={email}
-                        onChangeText={setEmail}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="Phone Number"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={phone}
-                        onChangeText={setPhone}
-                        keyboardType="phone-pad"
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="Username"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={username}
-                        onChangeText={setUsername}
-                        autoCapitalize="none"
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="License"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={licenseNumber}
-                        onChangeText={setLicenseNumber}
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="Address"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={address}
-                        onChangeText={setAddress}
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="Pincode"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={pincode}
-                        onChangeText={setPincode}
-                        keyboardType="number-pad"
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="Timezone"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={timezone}
-                        onChangeText={setTimezone}
-                        autoCapitalize="none"
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="Language"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={languageLabel}
-                        editable={false}
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="Driver ID"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={userInfo?.driver_id ?? ''}
-                        editable={false}
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="Carrier"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={userInfo?.career_name ?? ''}
-                        editable={false}
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="Main Office Address"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={String(userInfo?.main_office_address ?? '')}
-                        editable={false}
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="Home Terminal Name"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={userInfo?.home_terminal_name ?? ''}
-                        editable={false}
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <AppTextInput.Outlined
-                        placeholder="Home Terminal Address"
-                        containerStyle={styles.inputContainerStyle}
-                        activeBorderColor={'#848484'}
-                        value={userInfo?.home_terminal?.address ?? ''}
-                        editable={false}
-                        inputStyle={{
-                            ...styles.inputStyle,
-                            color: colors.primaryFontFamily
-                        }}
-                    />
-
-                    <View
-                        style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            marginVertical: moderateScale(15)
-                        }}
-                    >
-                        <Image
-                            source={require('../../Assets/Icons/warning.png')}
-                            style={{
-                                height: moderateScale(18),
-                                width: moderateScale(18),
-                                resizeMode: 'contain',
-                                tintColor: '#848484'
-                            }}
+                <BackHeader title={headerTitle} showBack={false}/>
+                <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    refreshControl={
+                        <RefreshControl
+                                refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={['#392969']}
+                            tintColor="#392969"
                         />
+                    }
+                >
+                    <View style={styles.profileContainer}>
+                        <Image
+                            source={getUserAvatarSource(userData?.avatar_image)}
+                            style={{
+                                height: moderateScale(65),
+                                width: moderateScale(65),
+                                borderRadius: moderateScale(65 / 2)
+                            }}
+                            resizeMode="cover"
+                        />
+
                         <Text
                             style={{
                                 fontFamily: FONTS.ProductSans.regular,
-                                color: '#848484',
-                                fontSize: moderateScale(12),
-                                marginLeft: moderateScale(10),
-                                width: '90%'
+                                fontSize: moderateScale(20),
+                                width: '50%',
+                                marginLeft: moderateScale(13),
+                                color: colors.buttonColor
                             }}
                         >
-                            Carrier and terminal details are managed by your fleet
-                            manager.
+                            {`${firstName} ${lastName}`.trim() || 'Profile'}
                         </Text>
                     </View>
 
-                    <AppButton
-                        title={saving ? 'Updating...' : 'Update Profile'}
-                        disabled={saving}
-                        textStyle={styles.btnTextStyle}
-                        style={styles.updateButton}
-                        onPress={handleUpdateProfile}
-                        loader={saving ? {
-                            position: 'right',
-                            size: 'small',
-                            color: '#FFFFFF'
-                        } : undefined}
-                    />
-
                     <View
                         style={{
-                            marginTop: moderateScale(30)
+                            marginHorizontal: moderateScale(10)
                         }}
                     >
                         <Text
                             style={{
                                 fontFamily: FONTS.ProductSans.bold,
-                                fontSize: moderateScale(17),
-                                color: colors.buttonColor
+                                fontSize: moderateScale(15)
                             }}
                         >
-                            Settings
+                            Personal Information
                         </Text>
-                        {SETTING_ITEMS.map((item, index) => {
-                            return (
-                                <View
-                                    style={styles.settingListItem}
-                                    key={index}
-                                >
-                                    <Image
-                                        source={item.image}
-                                        style={{
-                                            height: moderateScale(18),
-                                            width: moderateScale(18),
-                                            resizeMode: 'contain',
-                                            tintColor: colors.buttonColor
-                                        }}
-                                    />
 
-                                    <Text
-                                        style={{
-                                            color: colors.buttonColor,
-                                            fontFamily: FONTS.ProductSans.regular,
-                                            fontSize: moderateScale(15),
-                                            marginLeft: moderateScale(15)
-                                        }}
+                        <AppTextInput.Outlined
+                            placeholder="First Name"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={firstName}
+                            onChangeText={setFirstName}
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="Last Name"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={lastName}
+                            onChangeText={setLastName}
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="Email Address"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={email}
+                            onChangeText={setEmail}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="Phone Number"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={phone}
+                            onChangeText={setPhone}
+                            keyboardType="phone-pad"
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="Username"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={username}
+                            onChangeText={setUsername}
+                            autoCapitalize="none"
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="License"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={licenseNumber}
+                            onChangeText={setLicenseNumber}
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="Address"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={address}
+                            onChangeText={setAddress}
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="Pincode"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={pincode}
+                            onChangeText={setPincode}
+                            keyboardType="number-pad"
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="Timezone"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={timezone}
+                            onChangeText={setTimezone}
+                            autoCapitalize="none"
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="Language"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={languageLabel}
+                            editable={false}
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="Driver ID"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={userInfo?.driver_id ?? ''}
+                            editable={false}
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="Carrier"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={userInfo?.career_name ?? ''}
+                            editable={false}
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="Main Office Address"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={String(userInfo?.main_office_address ?? '')}
+                            editable={false}
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="Home Terminal Name"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={userInfo?.home_terminal_name ?? ''}
+                            editable={false}
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <AppTextInput.Outlined
+                            placeholder="Home Terminal Address"
+                            containerStyle={styles.inputContainerStyle}
+                            activeBorderColor={'#848484'}
+                            value={userInfo?.home_terminal?.address ?? ''}
+                            editable={false}
+                            inputStyle={{
+                                ...styles.inputStyle,
+                                color: colors.primaryFontFamily
+                            }}
+                        />
+
+                        <View
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                marginVertical: moderateScale(15)
+                            }}
+                        >
+                            <Image
+                                source={require('../../Assets/Icons/warning.png')}
+                                style={{
+                                    height: moderateScale(18),
+                                    width: moderateScale(18),
+                                    resizeMode: 'contain',
+                                    tintColor: '#848484'
+                                }}
+                            />
+                            <Text
+                                style={{
+                                    fontFamily: FONTS.ProductSans.regular,
+                                    color: '#848484',
+                                    fontSize: moderateScale(12),
+                                    marginLeft: moderateScale(10),
+                                    width: '90%'
+                                }}
+                            >
+                                Carrier and terminal details are managed by your fleet
+                                manager.
+                            </Text>
+                        </View>
+
+                        <AppButton
+                            title={saving ? 'Updating...' : 'Update Profile'}
+                            disabled={saving}
+                            textStyle={styles.btnTextStyle}
+                            style={styles.updateButton}
+                            onPress={handleUpdateProfile}
+                            loader={saving ? {
+                                position: 'right',
+                                size: 'small',
+                                color: '#FFFFFF'
+                            } : undefined}
+                        />
+
+                        <View
+                            style={{
+                                marginTop: moderateScale(30)
+                            }}
+                        >
+                            <Text
+                                style={{
+                                    fontFamily: FONTS.ProductSans.bold,
+                                    fontSize: moderateScale(17),
+                                    color: colors.buttonColor
+                                }}
+                            >
+                                Settings
+                            </Text>
+                            {SETTING_ITEMS.map((item, index) => {
+                                return (
+                                    <View
+                                        style={styles.settingListItem}
+                                        key={index}
                                     >
-                                        {item.title}
-                                    </Text>
-                                </View>
-                            );
-                        })}
-                    </View>
+                                        <Image
+                                            source={item.image}
+                                            style={{
+                                                height: moderateScale(18),
+                                                width: moderateScale(18),
+                                                resizeMode: 'contain',
+                                                tintColor: colors.buttonColor
+                                            }}
+                                        />
 
-                    <Text
-                        style={{
-                            fontFamily: FONTS.ProductSans.regular,
-                            color: '#848484',
-                            fontSize: moderateScale(11),
-                            textDecorationLine: 'underline',
-                            textAlign: 'center',
-                            marginVertical: moderateScale(10)
-                        }}
-                    >
-                        Report a bug
-                    </Text>
-                </View>
-            </ScrollView>
+                                        <Text
+                                            style={{
+                                                color: colors.buttonColor,
+                                                fontFamily: FONTS.ProductSans.regular,
+                                                fontSize: moderateScale(15),
+                                                marginLeft: moderateScale(15)
+                                            }}
+                                        >
+                                            {item.title}
+                                        </Text>
+                                    </View>
+                                );
+                            })}
+                        </View>
+
+                        <Text
+                            style={{
+                                fontFamily: FONTS.ProductSans.regular,
+                                color: '#848484',
+                                fontSize: moderateScale(11),
+                                textDecorationLine: 'underline',
+                                textAlign: 'center',
+                                marginVertical: moderateScale(10)
+                            }}
+                        >
+                            Report a bug
+                        </Text>
+                    </View>
+                </ScrollView>
+                </KeyboardAvoidingView>
+            </LinearGradient>
         </Container>
     );
 };
@@ -556,6 +572,10 @@ const AccountSetting = ({
 export default AccountSetting;
 
 const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#FFFFFF'
+    },
     profileContainer: {
         paddingVertical: moderateScale(10),
         marginHorizontal: moderateScale(10),

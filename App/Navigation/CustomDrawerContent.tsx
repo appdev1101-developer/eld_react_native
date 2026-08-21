@@ -20,6 +20,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { performLogout } from '../core/hooks/useSession';
 import { RootState } from '../Redux/store';
 import { getUserAvatarSource } from '../Constants/ProfileImage';
+import { showToast } from '../Utils/toast';
+import { logger } from '../core/logger';
 
 type DrawerListItem = {
     title: string;
@@ -32,11 +34,8 @@ const CustomDrawerContent: React.FC<Props> = (props) => {
     const { userData } = useSelector((state: RootState) => state.User);
 
     const dispatch = useDispatch();
+    
     const DrawerList: Array<DrawerListItem> = [
-        // {
-        //     title: 'DVIR',
-        //     source: require('../Assets/Icons/error.png')
-        // },
         {
             title: 'Connect ELD',
             source: require('../Assets/Icons/Device.png'),
@@ -60,25 +59,31 @@ const CustomDrawerContent: React.FC<Props> = (props) => {
             source: require('../Assets/Icons/messages.png'),
             onPress: () => {
                 NavigationService.closeDrawer();
-                NavigationService.navigate('Message', {
-                    screen: 'RecentChats',
-                    params: { showBack: true }
+                // Messages now has exactly one instance — the BottomTab
+                // route — rather than a second, separate MessageStack that
+                // used to live directly on the drawer under the name
+                // "Message". Navigating into a nested tab's specific
+                // screen uses this {screen, params} shape.
+                NavigationService.navigate('BottomTab', {
+                    screen: 'Messages',
+                    params: {
+                        screen: 'RecentChats',
+                        params: { showBack: true }
+                    }
                 });
             }
         },
         {
             title: 'Documents',
-            source: require('../Assets/Icons/document.png')
+            source: require('../Assets/Icons/document.png'),
+            onPress: () => showToast('Coming soon')
         },
-        // {
-        //     title: 'Information Packet',
-        //     source: require('../Assets/Icons/FAQ.png')
-        // },
         {
             title: 'Log Out',
             source: require('../Assets/Icons/logout.png'),
             color: '#FA1740',
             onPress: () => {
+
                 performLogout(dispatch);
             }
         }

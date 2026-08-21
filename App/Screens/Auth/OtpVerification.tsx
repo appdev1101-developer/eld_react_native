@@ -13,13 +13,14 @@ import OTPInput from '../../Components/UI/OTPInput';
 import { RouteProp } from '@react-navigation/native';
 import { showError } from '../../Utils/toast';
 import { otp } from '../../Utils/validators';
+import { AuthStackParamList } from '../../Navigation/AuthStack';
 
 type OtpVerificationRouteProp = RouteProp<
-    { params: { otp: string; email: string } },
-    'params'
+    AuthStackParamList,
+    'OtpVerification'
 >;
 
-const OtpVerification = ({ route }: { route: OtpVerificationRouteProp }) => {
+const OtpVerification = ({route,}: {route: OtpVerificationRouteProp}) => {
     const { otp: expectedOtp, email } = route.params;
 
     const [enteredOtp, setEnteredOtp] = useState<string>('');

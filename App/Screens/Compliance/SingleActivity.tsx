@@ -64,7 +64,6 @@ const SingleActivity = () => {
             showError('Activity date is unavailable');
             return;
         }
-
         const parsed = Util.parseSignatureData(signature);
 
         if (!parsed) {

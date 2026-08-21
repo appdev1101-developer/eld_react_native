@@ -86,8 +86,8 @@ android {
         applicationId "com.truxy"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.0.1"
         // Inject the property from gradle.properties into the manifest placeholder
         manifestPlaceholders = [mapsApiKey: GOOGLE_MAPS_API_KEY]
     }

@@ -1,6 +1,9 @@
-//import liraries
-import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
-import React, { Component } from 'react';
+import React from 'react';
+import {
+    createStackNavigator,
+    TransitionPresets,
+} from '@react-navigation/stack';
+
 import SignIn from '../Screens/Auth/SignIn';
 import Welcome from '../Screens/Auth/Welcome';
 import Register from '../Screens/Auth/Register';
@@ -9,14 +12,32 @@ import OtpVerification from '../Screens/Auth/OtpVerification';
 import CreateNewPassword from '../Screens/Auth/CreateNewPassword';
 import PasswordChanged from '../Screens/Auth/PasswordChanged';
 
-const Stack = createStackNavigator();
+/**
+ * Auth Stack Route Parameters
+ */
+export type AuthStackParamList = {
+    Welcome: undefined;
+    SignIn: undefined;
+    Register: undefined;
+    ForgotPassword: undefined;
+    OtpVerification: {
+        otp: string;
+        email: string;
+    };
+    CreateNewPassword: {
+        email: string;
+    };
+    PasswordChanged: undefined;
+};
 
-const AuthStack = () => {
+const Stack = createStackNavigator<AuthStackParamList>();
+
+const AuthStack: React.FC = () => {
     return (
         <Stack.Navigator
             initialRouteName="Welcome"
             screenOptions={{
-                headerShown: false
+                headerShown: false,
             }}
         >
             <Stack.Screen

@@ -34,7 +34,7 @@ export const realtimeSocket = new SocketClient<WsReceiveType | SessionMessageTyp
         onOpenHandshake: (send) => {
             void SessionManager.getToken().then((token) => {
                 if (token) {
-                    logger.log("Initial request to establish connection with websocket"+token)
+                    logger.log("Initial request to establish connection with websocket")
                     send({ sendType: AUTH_SEND_TYPE, token: token.trim() });
                 }
             });

@@ -25,12 +25,51 @@ const ActivitySignTab : React.FC<Props> = ({ onSignature }) => {
                 ref={signatureRef}
                 onOK={onSignature}
                 autoClear
-                descriptionText="Draw signature here"
-                clearText="Clear Signature"
+                descriptionText=""
+                clearText="Clear"
                 confirmText="Accept"
                 webStyle={`
-                    body,html { height: 200px !important; }
-                    .m-signature-pad--footer { padding: 0 !important; }
+                        body,html {
+                        height: 220px !important;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .m-signature-pad {
+                        border: 0;
+                        margin: 0;
+                    }
+                    .m-signature-pad--body {
+                        border: none;
+                    }
+                    .m-signature-pad--footer {
+                        display: flex !important;
+                        justify-content: space-between !important;
+                        align-items: center !important;
+                        margin: 20px !important;
+                        padding: 10px 20px !important;
+                    }
+                    .m-signature-pad--footer .button {
+                        position: relative !important;
+                        display: inline-flex !important;
+                        align-items: center;
+                        justify-content: center;
+                        width: auto !important;
+                        min-width: 90px;
+                        height: 40px;
+                        padding: 0 16px !important;
+                        box-sizing: border-box !important;
+                        font-size: 14px;
+                        font-weight: 600;
+                        border-radius: 6px;
+                    }
+                    .m-signature-pad--footer .button.clear {
+                        background-color: #f0f0f0 !important;
+                        color: #000000 !important;
+                    }
+                    .m-signature-pad--footer .button.save {
+                        background-color: #2196F3 !important;
+                        color: #ffffff !important;
+                    }
                 `}
                 style={styles.signature}
             />
@@ -48,7 +87,7 @@ const styles = StyleSheet.create({
         marginHorizontal: moderateScale(20)
     },
     description: {
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(12),
         color: '#33404F',
         fontFamily: FONTS.ProductSans.regular
     },

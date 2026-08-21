@@ -90,7 +90,7 @@ export class SocketClient<TMessageType extends string> {
                 try {
                     logger.log("<<<<<<< Socket.onmessage Data  >>>>>>>>>>> "+event.data)
                     const data = JSON.parse(String(event.data));
-                    logger.log("<<<<<<< Socket.onmessage Data  >>>>>>>>>>> "+data)
+                    //logger.log("<<<<<<< Socket.onmessage Data  >>>>>>>>>>> "+data)
                     const type = data?.[this.options.typeField];
                     logger.log("<<<<<<< Socket.onmessage type  >>>>>>>>>>> "+type)
                     if (type) {

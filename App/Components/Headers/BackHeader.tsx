@@ -22,7 +22,7 @@ const BackHeader: React.FC<Props> = ({ title, showBack = true }) => {
 
     if (!showBack) {
         return (
-            <View style={{ paddingTop: insets.top }}>
+            // <View style={{ paddingTop: insets.top }}>
                 <AppBar
                     title={title}
                     titlePosition="left"
@@ -31,7 +31,7 @@ const BackHeader: React.FC<Props> = ({ title, showBack = true }) => {
                         color: colors.buttonColor
                     }}
                 />
-            </View>
+            // </View>
         );
     }
 

@@ -157,7 +157,7 @@ class GeoDataForegroundService : Service() {
         }
         crashlytics.setCustomKey("eld_device_address", deviceAddress)
         crashlytics.setCustomKey("eld_api_url", apiUrl)
-        crashlytics.log("GeoDataForegroundService -> data "+deviceAddress+"  "+ apiUrl+"  "+token)
+        crashlytics.log("GeoDataForegroundService -> data "+deviceAddress+"  "+ apiUrl)
 
         if (apiUrl.isBlank()) {
             Log.e(TAG, "Cannot start – apiUrl is empty")
@@ -378,7 +378,6 @@ class GeoDataForegroundService : Service() {
 
     private fun geoDataToJson(data: GeoData): String {
         val issues = CrashlyticsHelper.FieldIssues()
-
         val json = JSONObject().apply {
             try {
                 // Basic status
@@ -510,6 +509,7 @@ class GeoDataForegroundService : Service() {
         }
 
         CrashlyticsHelper.reportFieldIssues(issues, json.toString(), savedDeviceAddress, "service")
+        crashlytics.log("<<< GDFS Data>>>> "+json.toString())
         return json.toString()
     }
 

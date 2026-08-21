@@ -42,7 +42,7 @@ const GeoDataBackgroundService = {
         const eldDataUrl=getEldApiUrl();
         await Storage.set(STORAGE_KEY_DEVICE, deviceAddress);
         
-        logger.log(">>>> Token >>>> "+token);
+        // logger.log(">>>> Token >>>> "+token);
         logger.log(">>>> ELD Data Url >>>> "+eldDataUrl);
         logger.log(">>>> Bluetooth Device >>>> "+deviceAddress);
         return NativeGeoDataService.startService(eldDataUrl, token, deviceAddress);

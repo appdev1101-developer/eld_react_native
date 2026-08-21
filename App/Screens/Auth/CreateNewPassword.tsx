@@ -14,8 +14,9 @@ import { showError, showToast } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { firstInvalid, minLength, passwordsMatch, required } from '../../Utils/validators';
 import { THEME } from '../../Constants/Theme';
+import { AuthStackParamList } from '../../Navigation/AuthStack';
 
-type CreatePasswordRouteProp = RouteProp<{ params: { email: string } }, 'params'>;
+type CreatePasswordRouteProp = RouteProp<AuthStackParamList,'CreateNewPassword'>;
 
 const CreateNewPassword = ({ route }: { route: CreatePasswordRouteProp }) => {
     const { email } = route.params;
