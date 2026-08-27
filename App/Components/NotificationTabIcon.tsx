@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Text } from 'react-native-basic-elements';
@@ -18,10 +18,6 @@ const NotificationTabIcon: React.FC<Props> = ({ focused, color }) => {
         const count = await prefetchNotifications();
         setUnreadCount(count);
     }, []);
-
-    useEffect(() => {
-        syncUnreadCount();
-    }, [syncUnreadCount]);
 
     useFocusEffect(
         useCallback(() => {

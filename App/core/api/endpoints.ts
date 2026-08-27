@@ -29,8 +29,8 @@ export const API = {
         config: () => 'config/data',
         notifications: () => 'user/data/notification',
         approvals: () => 'approval/mobile/request',
-        approvalAction: (type: ApprovalRequestType, status: number) =>
-            `approval/mobile/request/${type}/${status}`
+        approvalAction: () =>
+            `approval/mobile/request/data/log`
     },
     hos: {
         // data: (fromDate: string, toDate: string) =>
@@ -40,8 +40,8 @@ export const API = {
         unsignedLogs: () => 'hos/log/unsigned',
         certifyLog: (date: string) => `hos/log/unsigned/certify/${date}`,
         editActivity: () => 'hos/form/edit/activity',
-        editDutyStatusLog: (logId: number | string) =>
-            `hos/form/edit/duty-status/${logId}`
+        editDutyStatusLog: () =>
+            `hos/mobile/graph/log/edit`
     },
     inspection: {
         createForm: () => 'driver/mobile/inspection/create',

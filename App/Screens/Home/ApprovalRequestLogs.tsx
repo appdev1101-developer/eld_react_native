@@ -34,12 +34,14 @@ const ApprovalRequestLogs = () => {
     const approvals = useSelector((state: RootState) => state.Dashboard.approvals);
     const ref = useRef<SignatureViewRef>(null);
     const requestType = route.params?.type as ApprovalRequestType;
+    const requestApprovalType = route.params?.type as string;
     const allApprovalRequests = (approvals[requestType] as Array<any>) ?? [];
     const [selectedLogId, setSelectedLogId] = useState<number[]>([]);
     const [loading, setLoading] = useState<boolean>(
         allApprovalRequests.length === 0
     );
-
+    const DRIVER_APPROVED:number = 1;
+    const DRIVER_DECLINED:number = 0;
     const refreshApprovals = async () => {
         setLoading(true);
         try {
@@ -62,7 +64,8 @@ const ApprovalRequestLogs = () => {
         }
     }, []);
 
-    const approveSelectedRequests = (status: number) => {
+    // status = 1 for approved and 0 for declined
+    const approveSelectedRequests = (isApproved: number) => {
         if (selectedLogId.length === 0) {
             showError('Please select at least one request');
             return;
@@ -74,13 +77,11 @@ const ApprovalRequestLogs = () => {
 
         setLoading(true);
         dashboardApi
-            .markApprovalStatus(requestType, status, {
-                log_id: selectedLogId.join(',')
-            })
+            .markApprovalStatus({log_id: selectedLogId.join(','),type:requestApprovalType,is_approved:isApproved})
             .then((res) => {
                 if (isSuccess(res)) {
                     showToast(
-                        `${status === 1 ? 'Approved' : 'Rejected'} successfully`
+                        `${isApproved === 1 ? 'Approved' : 'Rejected'} successfully`
                     );
                     refreshApprovals();
                     setSelectedLogId([]);
@@ -253,7 +254,8 @@ const ApprovalRequestLogs = () => {
                         <Pressable
                             style={[styles.floatingButton, styles.approveButton]}
                             onPress={() => {
-                                approveSelectedRequests(1);
+
+                                approveSelectedRequests(DRIVER_APPROVED);
                             }}
                         >
                             <Text style={styles.floatingButtonText}>✓</Text>
@@ -261,7 +263,7 @@ const ApprovalRequestLogs = () => {
                         <Pressable
                             style={[styles.floatingButton, styles.rejectButton]}
                             onPress={() => {
-                                approveSelectedRequests(2);
+                                approveSelectedRequests(DRIVER_DECLINED);
                             }}
                         >
                             <Text style={styles.floatingButtonText}>✕</Text>

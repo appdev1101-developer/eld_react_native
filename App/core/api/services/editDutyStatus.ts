@@ -4,7 +4,7 @@ import { EditDutyStatusFormValues } from '../types/editDutyStatus';
 import { requireOnline } from '../../network/requireOnline';
 import { apiPost } from '../client';
 import { API } from '../endpoints';
-import { isSuccess } from '../types/common';
+import { ApiResponse, isSuccess } from '../types/common';
 import { getApiErrorMessage } from '../../../Utils/apiErrorMessage';
 // import { API } from '../../../core/api/endpoints';
 // import { apiPost } from '../../../core/api/client';
@@ -15,36 +15,50 @@ import { getApiErrorMessage } from '../../../Utils/apiErrorMessage';
 // import { EditDutyStatusFormValues } from '../types/editDutyStatus.types';
 import { logger } from '../../logger/index';
 
-export async function updateDutyStatus(
-    log: HosGraphLogEntry,
+export async function updateLogDutyStatus(
+    editedFullLog: HosGraphLogEntry[],
     date: string,
-    form: EditDutyStatusFormValues
+    //form: EditDutyStatusFormValues
 ): Promise<{ success: boolean; message?: string }> {
     if (!requireOnline()) {
         return { success: false };
     }
 
     try {
-        const payload = {
-            log_id: log.log_id,
-            date,
-            start_time: moment(form.startTime).format('HH:mm:ss'),
-            end_time: moment(form.endTime).format('HH:mm:ss'),
-            shift_id: form.dutyStatus,
-            location: form.location,
-            notes: form.notes
+        // const payload = {
+        //     log_id: log.log_id,
+        //     date,
+        //     start_time: moment(form.startTime).format('HH:mm:ss'),
+        //     end_time: moment(form.endTime).format('HH:mm:ss'),
+        //     shift_id: form.dutyStatus,
+        //     location: form.location,
+        //     notes: form.notes
+        // };
+        // logger.log("<<<<<<< Edit Duty Payload >>>>>>>>"+ JSON.stringify(payload));
+        // const result = await apiPost(
+        //     API.hos.editDutyStatusLog(log.log_id),
+        //     (raw) => raw,
+        //     payload
+        // );
+
+        const payload={
+            log_date: date,
+            log_data: editedFullLog
         };
-        logger.log("<<<<<<<Edit Duty Payload >>>>>>>>"+ JSON.stringify(payload));
+        logger.log("<<<<<<< Edit Duty Payload >>>>>>>>"+ JSON.stringify(payload));
         const result = await apiPost(
-            API.hos.editDutyStatusLog(log.log_id),
+            API.hos.editDutyStatusLog(),
             (raw) => raw,
             payload
         );
-
         return {
             success: isSuccess(result),
             message: result.message
         };
+        // return {
+        //     success: true,
+        //     message: ('Testing success')
+        // };
     } catch (error: unknown) {
         return {
             success: false,

@@ -15,11 +15,40 @@ function convertToMonthFormat(date: string, timezone?: string) : string
 
 function convertToTimeFormat(time: string) : string
 {
-    console.log("<<<<  Time >>>>>> "+time);
     const timeObj = moment(time, 'HH:mm:ss');
     return timeObj.format('HH [hr], mm [min]');
 }
+function convertDateToTimeStrFormat(selectedDate: Date) : string
+{
+    const hours = selectedDate.getHours();
+    const minutes = selectedDate.getMinutes();
+    const seconds = selectedDate.getSeconds();
 
+    // Format to 24-Hour String (e.g., "14:05")
+    const time24 = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    return time24;
+}
+function getSecondsFromMidnight(timeStr: string, zone:string) : number
+{
+  const parsed = moment.tz(`${REFERENCE_DATE} ${timeStr}`, "YYYY-MM-DD HH:mm:ss", zone);
+  
+  // Calculate total seconds from the start of that anchor day
+  return (parsed.hour() * 3600) + (parsed.minute() * 60) + parsed.second();
+};
+
+/**
+ * Converts total seconds back to a strict "HH:mm:ss" string.
+ * It uses a modulo loop to safely roll over if seconds exceed 24 hours.
+ */
+function convertSecondsToTimeString(totalSeconds:number):string{
+  const hours = Math.floor(totalSeconds / 3600) % 24;
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return [hours, minutes, seconds]
+    .map((val) => String(val).padStart(2, "0")) // Adds leading zeros
+    .join(":");
+};
 
 // Single Activity functions
 
@@ -108,7 +137,10 @@ const Util= {
     formatLogTimeRange,
     createEditActivityPayload,
     parseSignatureData,
-    REFERENCE_DATE
+    REFERENCE_DATE,
+    convertDateToTimeStrFormat,
+    getSecondsFromMidnight,
+    convertSecondsToTimeString
 }
 
 export default Util;

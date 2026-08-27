@@ -45,7 +45,9 @@ function mapGraphEntry(raw: Record<string, unknown>): HosGraphLogEntry {
         odometer: asNullableString(raw.odometer),
         location_start: asNullableString(raw.location_start),
         location_end: asNullableString(raw.location_end),
-        engine_hour: asNullableString(raw.engine_hour)
+        engine_hour: asNullableString(raw.engine_hour),
+        isLogEditable: asBoolean(raw.is_edit_allowed) ?? true,
+        notes: asString(raw.notes) ?? ''
     };
 }
 

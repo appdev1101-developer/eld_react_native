@@ -95,14 +95,14 @@ export const dashboardApi = {
             {}
         ),
 
-    markApprovalStatus: (
-        type: Parameters<typeof API.dashboard.approvalAction>[0],
-        status: number,
-        data: unknown
-    ) =>
+    markApprovalStatus: (payload:{
+        log_id: string,
+        type: string,
+        is_approved: number,
+    }) =>
         apiPost<Record<string, never>>(
-            API.dashboard.approvalAction(type, status),
+            API.dashboard.approvalAction(),
             mapEmptyData,
-            data
+            payload
         )
 };

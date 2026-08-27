@@ -9,6 +9,39 @@ import {
     markNotificationsReadInCache,
     setNotificationsCache
 } from '../cache/notificationsCache';
+import { logger } from '../logger';
+
+type NotificationLists = {
+    all: NotificationItem[];
+    unread: NotificationItem[];
+    read: NotificationItem[];
+};
+
+let inFlightRequest: Promise<NotificationLists | null> | null = null;
+
+async function fetchNotifications(): Promise<NotificationLists | null> {
+    if (!inFlightRequest) {
+        inFlightRequest = (async () => {
+            try {
+                const result = await notificationApi.getAll();
+                if (isSuccess(result)) {
+                    setNotificationsCache(result.data);
+                    return result.data;
+                }
+                return null;
+            } catch (error) {
+                if (__DEV__) {
+                    console.warn('notifications fetch failed', error);
+                }
+                return null;
+            }
+        })().finally(() => {
+            inFlightRequest = null;
+        });
+    }
+ 
+    return inFlightRequest;
+}
 
 export async function prefetchNotifications(options?: {
     force?: boolean;
@@ -20,19 +53,8 @@ export async function prefetchNotifications(options?: {
         }
     }
 
-    try {
-        const result = await notificationApi.getAll();
-        if (isSuccess(result)) {
-            setNotificationsCache(result.data);
-            return result.data.unread.length;
-        }
-    } catch (error) {
-        if (__DEV__) {
-            console.warn('prefetchNotifications failed', error);
-        }
-    }
-
-    return getUnreadNotificationCount();
+    const result = await fetchNotifications();
+    return result ? result.unread.length : getUnreadNotificationCount();
 }
 
 export function useNotifications() {
@@ -53,11 +75,10 @@ export function useNotifications() {
     );
 
     const applyLists = useCallback(
-        (lists: { all: NotificationItem[]; unread: NotificationItem[]; read: NotificationItem[] }) => {
+        (lists: NotificationLists) => {
             setAllNotifications(lists.all);
             setUnreadNotifications(lists.unread);
             setReadNotifications(lists.read);
-            setNotificationsCache(lists);
         },
         []
     );
@@ -80,15 +101,14 @@ export function useNotifications() {
             }
 
             try {
-                const result = await notificationApi.getAll();
-                if (isSuccess(result)) {
-                    applyLists(result.data);
-                    return result.data;
+                const result = await fetchNotifications();
+                if (result) {
+                    applyLists(result);
                 }
-                return null;
+                return result;
             } catch (error) {
                 if (__DEV__) {
-                    console.warn('useNotifications load failed', error);
+                    logger.log('useNotifications load failed'+ error);
                 }
                 return null;
             } finally {

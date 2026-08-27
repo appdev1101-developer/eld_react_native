@@ -167,12 +167,14 @@ const styles = StyleSheet.create({
         zIndex: 99999
     },
     modeLabel: {
+        marginVertical:moderateScale(12),
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(11),
         color: THEME.colors.textAccent,
         textTransform: 'uppercase',
         letterSpacing: 1.5,
-        opacity: 0.85
+        opacity: 0.9,
+        
     },
     modeName: {
         fontFamily: FONTS.ProductSans.bold,

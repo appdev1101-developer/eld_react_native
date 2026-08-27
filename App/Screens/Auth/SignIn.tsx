@@ -12,6 +12,7 @@ import { showError, showToast } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { email, firstInvalid, minLength, required } from '../../Utils/validators';
 import { THEME } from '../../Constants/Theme';
+import { logger } from '../../core/logger';
 
 const SignIn = () => {
     const { login } = useSession();
@@ -73,7 +74,6 @@ const SignIn = () => {
                 password,
                 force: 1
             });
-
             if ('conflict' in result) {
                 showError('Unable to force login. Please try again.');
                 setShowConflictModal(true);
@@ -83,7 +83,8 @@ const SignIn = () => {
             if (result.success) {
                 setShowConflictModal(false);
             }
-            showToast(result.message || 'Login failed');
+            showToast(result.message || 'You have successfully signed in.');
+            
         } catch (error: unknown) {
             showError(getApiErrorMessage(error, 'Failed to force login'));
         } finally {

@@ -18,6 +18,8 @@ export interface HosGraphLogEntry {
     location_start: string | null;
     location_end: string | null;
     engine_hour: string | null;
+    isLogEditable: boolean;
+    notes: string | null;
 }
 
 export interface HosVehicleRef {

@@ -16,8 +16,8 @@ interface Props {
     timezoneLabel?: string;
     onChange: (date: Date) => void;
     disabled?: boolean;
-    minTime: Date;
-    maxTime: Date;
+    minTime?: Date;
+    maxTime?: Date;
 }
 
 /**
@@ -50,9 +50,13 @@ const TimeField: React.FC<Props> = ({
     const handleAndroidChange = (event: DateTimePickerEvent, selected?: Date) => {
         setPickerVisible(false);
         
-        if (event.type === 'set' && selected && (selected.getTime() >= minTime.getTime() && selected.getTime() < maxTime.getTime())) {
+        // if (event.type === 'set' && selected && (selected.getTime() >= minTime.getTime() && selected.getTime() < maxTime.getTime())) {
+        //     onChange(selected);
+        // }
+        if (event.type === 'set' && selected) {
             onChange(selected);
         }
+     
     };
 
     const handleIosChange = (_event: DateTimePickerEvent, selected?: Date) => {
