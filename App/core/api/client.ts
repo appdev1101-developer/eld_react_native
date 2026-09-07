@@ -45,7 +45,7 @@ export const apiClient: AxiosInstance = axios.create({
     baseURL: BASE_URL,
     timeout: REQUEST_TIMEOUT_MS,
     headers: { Accept: '*/*' },
-    validateStatus: (status) => status === 200 || status === 409
+    validateStatus: (status) => status === 200 || status === 409 || status === 201
 });
 
 // ---- request interceptor: auth header + offline short-circuit ----
@@ -59,9 +59,25 @@ apiClient.interceptors.request.use(async (config) => {
         return Promise.reject(offlineError);
     }
 
+    // if (config.data instanceof FormData) {
+    //     // Don't force JSON content type.
+    //     delete config.headers?.['Content-Type'];
+        
+    //     //config.headers['Content-Type'] = 'multipart/form-data';
+    // } else {
+    //     config.headers['Content-Type'] = 'application/json';
+    // }
+    config.headers = config.headers ?? {};
+
+    // console.log('AXIOS REQUEST');
+    // console.log('url:', config.url);
+    // console.log('method:', config.method);
+    // console.log('data is FormData:', config.data instanceof FormData);
+    // console.log('content-type:', config.headers?.['Content-Type']);
     const token = await Storage.get<string>('token');
     if (token) {
-        config.headers = config.headers ?? {};
+        
+        //config.headers = config.headers ?? {};
         config.headers.Authorization = `Bearer ${token}`;
         // if(__DEV__)
         // {
@@ -74,11 +90,17 @@ apiClient.interceptors.request.use(async (config) => {
     {
         // Dev-only, and deliberately never logs request/response bodies —
         // those can contain auth tokens or driver PII.
+        //${JSON.stringify(config?.data)}
         logger.log(`[api] ${config.method?.toUpperCase()} ${config.url}`);
     }
 
     return config;
-});
+},
+// (error) => {
+//     console.log('AXIOS REQUEST ERROR (Before Server):', error);
+//     return Promise.reject(error);
+//   }
+);
 
 // ---- response interceptor: every failure comes out shaped as ApiError ----
 apiClient.interceptors.response.use(
@@ -93,7 +115,8 @@ apiClient.interceptors.response.use(
         }
 
         const axiosError = error as AxiosError<Record<string, unknown>>;
-        const endpoint = `${axiosError.config?.method?.toUpperCase() ?? '?'} ${axiosError.config?.url ?? '?'}`;
+        const endpoint = `${axiosError.config?.method?.toUpperCase() ?? '?'} ${axiosError.config?.url ?? '?'} ${axiosError.code}`;
+         
 
         if (axiosError.code === 'ECONNABORTED') {
             logger.log(`API timeout: ${endpoint}`);
@@ -104,7 +127,14 @@ apiClient.interceptors.response.use(
         }
 
         if (!axiosError.response) {
-            logger.recordError(axiosError, `API network error: ${endpoint}`);
+
+            logger.recordError(axiosError, `API network error: ${endpoint}\n ${axiosError.message}
+                \n ${axiosError.code}\n ${axiosError.config?.url}
+                \n ${axiosError.config?.baseURL}\n ${axiosError.config?.method}
+                \n ${axiosError.config?.headers}\n ${axiosError?.stack}
+                \n ${axiosError?.request}\n ${axiosError?.response}
+                `);
+            
             return Promise.reject({
                 statusCode: 0,
                 message: 'Network error. Check your connection.'
@@ -115,7 +145,7 @@ apiClient.interceptors.response.use(
 
         // Breadcrumb for every failure (method + endpoint + status only —
         // never the request/response body, which can carry tokens or PII).
-        logger.log(`API error ${status}: ${endpoint}`);
+        logger.log(`API error ${status}: ${endpoint} ${data?.message} ${data?.error} ${JSON.stringify(data) ?? ''}`);
         
 
         // Escalate server-side failures to a recorded (non-fatal) error;
@@ -255,7 +285,7 @@ function buildFormData(
             uri: file.uri,
             type: file.mime,
             name: file.name
-        } as unknown as Blob);
+        } as  any);//unknown as Blob);
     }
 
     return formData;
@@ -280,7 +310,10 @@ export async function apiUploadMultipart<T>(
         url: endpoint,
         method,
         data: formData,
-        headers: { 'cache-control': 'no-cache' }
+        headers: { 
+            Accept: 'application/json',
+           'cache-control': 'no-cache',
+         }
     });
 
     return buildApiResponse(response.data ?? {}, response.status, mapData);

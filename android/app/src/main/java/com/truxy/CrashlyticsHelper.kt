@@ -1,5 +1,6 @@
 package com.truxy
 
+import android.content.Context
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import org.json.JSONObject
 
@@ -42,10 +43,11 @@ object CrashlyticsHelper {
      * Real exceptions are always recorded; null-field summaries are throttled
      * to at most once per minute since they can repeat on every reading.
      */
-    fun reportFieldIssues(issues: FieldIssues, rawJsonSnapshot: String, deviceAddress: String, source: String) {
-        issues.exceptions.forEach { (context, e) ->
-            crashlytics.setCustomKey("geodata_error_context", "$source:$context")
+    fun reportFieldIssues(context: Context,issues: FieldIssues, rawJsonSnapshot: String, deviceAddress: String, source: String) {
+        issues.exceptions.forEach { (fieldContext, e) ->
+            crashlytics.setCustomKey("geodata_error_context", "$source:$fieldContext")
             crashlytics.recordException(e)
+            FileLogger.append(context, "GeoData exception ($source:$fieldContext): ${e.message}")
         }
 
         val now = System.currentTimeMillis()
@@ -57,6 +59,10 @@ object CrashlyticsHelper {
         crashlytics.setCustomKey("geodata_source", source)
         crashlytics.setCustomKey("geodata_snapshot", prettyJson(rawJsonSnapshot, 1000))
         crashlytics.recordException(Exception("GeoData null fields ($source): ${issues.summary()}"))
+        FileLogger.append(
+            context,
+            "GeoData null fields ($source, device=$deviceAddress): ${issues.summary()}"
+        )
     }
 
     fun prettyJson(json: String, maxChars: Int = 4000): String {

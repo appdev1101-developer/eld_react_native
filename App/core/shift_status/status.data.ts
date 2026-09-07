@@ -6,21 +6,21 @@ export const AllStatusData: StatusDataType[] = [
         icon: require('../../Assets/Icons/OffDuty.png'),
         name: 'Off Duty',
         arcColors: ['#ee4e34', '#f17c3a', '#ed393e'],
-        description:""
+        description:"Meal break."
     },
     {
         shift_status_id: 2,
         icon: require('../../Assets/Icons/Sleeper.png'),
         name: 'Sleeper',
         arcColors: ['#aeaeae', '#e6e4e1', '#818181'],
-        description:""
+        description:"Rest break in berth."
     },
     {
         shift_status_id: 4,
         icon: require('../../Assets/Icons/Break.png'),
         name: 'On Duty',
         arcColors: ['#f3c646', '#f5a841', '#b19359'],
-        description:""
+        description:"Loading cargo"
     },
     {
         shift_status_id: 3,
@@ -28,14 +28,14 @@ export const AllStatusData: StatusDataType[] = [
         name: 'Drive',
         overlayColor: '#72f575',
         selectedArc: 1,
-        description:""
+        description:"En route to delivery"
     },
     {
         shift_status_id: 5,
         icon: require('../../Assets/Icons/PersonalUse.png'),
         name: 'Personal Use',
         arcColors: ['#6c746e', '#acada5', '#494b4f'],
-        description:""
+        description:"Travel to lodging"
     },
     {
         shift_status_id: 6,
@@ -43,6 +43,6 @@ export const AllStatusData: StatusDataType[] = [
         name: 'Yard Move',
         overlayColor: '#eaf5a3',
         selectedArc: 2,
-        description:""
+        description:"Switching trailers"
     },
 ];

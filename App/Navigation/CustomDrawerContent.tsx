@@ -1,4 +1,5 @@
 import {
+    Alert,
     ColorValue,
     Image,
     ImageSourcePropType,
@@ -21,7 +22,7 @@ import { performLogout } from '../core/hooks/useSession';
 import { RootState } from '../Redux/store';
 import { getUserAvatarSource } from '../Constants/ProfileImage';
 import { showToast } from '../Utils/toast';
-import { logger } from '../core/logger';
+
 
 type DrawerListItem = {
     title: string;
@@ -32,7 +33,7 @@ type DrawerListItem = {
 type Props = DrawerContentComponentProps;
 const CustomDrawerContent: React.FC<Props> = (props) => {
     const { userData } = useSelector((state: RootState) => state.User);
-
+    
     const dispatch = useDispatch();
     
     const DrawerList: Array<DrawerListItem> = [
@@ -86,7 +87,7 @@ const CustomDrawerContent: React.FC<Props> = (props) => {
 
                 performLogout(dispatch);
             }
-        }
+        },
     ];
     return (
         <DrawerContentScrollView {...props}>
@@ -162,6 +163,7 @@ const CustomDrawerContent: React.FC<Props> = (props) => {
             </Pressable>
 
             {DrawerList.map((item, index) => {
+                
                 return (
                     <Pressable
                         style={styles.itemContainer}

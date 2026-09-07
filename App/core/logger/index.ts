@@ -8,6 +8,7 @@ import {
     recordError as fbRecordError,
     crash as fbCrash,
 } from '@react-native-firebase/crashlytics';
+import { appendDiagnosticLog } from './file_logger';
 
 /**
  * Thin wrapper around Crashlytics. Nothing in the rest of the app should
@@ -72,6 +73,7 @@ export function setContextBatch(values: Record<string, string | number | boolean
  */
 function log(message: string) {
     fbLog(crashlyticsInstance, message);
+    appendDiagnosticLog(message, 'js');
     if (__DEV__) {
         // eslint-disable-next-line no-console
         console.log(`[crashlytics] ${message}`);
@@ -91,7 +93,9 @@ function recordError(error: unknown, context?: string) {
     const normalized =
         error instanceof Error ? error : new Error(typeof error === 'string' ? error : JSON.stringify(error));
     fbRecordError(crashlyticsInstance, normalized);
+    appendDiagnosticLog(`ERROR: ${normalized.message}`, 'js');
 }
+
 
 /**
  * Dev-only manual crash trigger, to confirm the pipeline actually reaches

@@ -279,14 +279,14 @@ class GeometrisModule(private val reactContext: ReactApplicationContext) :
     // WritableMap can't be re-read back out, so we track raw values separately.
     val snapshot = "vin=${data.vin}, speed=${data.vehicleSpeed}, odometer=${data.odometer}, " +
         "lat=${data.latitude}, lng=${data.longitude}, rpm=${data.engineRPM}"
-    CrashlyticsHelper.reportFieldIssues(issues, snapshot, deviceAddress = connectedDeviceAddress, source = "module")
-
+    CrashlyticsHelper.reportFieldIssues(reactContext,issues, snapshot, deviceAddress = connectedDeviceAddress, source = "module")
+    FileLogger.append(reactContext, " <<< GeoData Snapshot >>>"+snapshot)
     return map
     }
 
     @ReactMethod
     fun testNativeCrash() {
-        if (!BuildConfig.DEBUG) return
+        //if (!BuildConfig.DEBUG) return
         crashlytics.log("Deliberate test crash triggered from JS")
         throw RuntimeException("Test native crash via GeometrisModule")
     }

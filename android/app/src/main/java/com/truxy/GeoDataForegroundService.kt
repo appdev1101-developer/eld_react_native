@@ -82,12 +82,14 @@ class GeoDataForegroundService : Service() {
                 BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
                     Log.w(TAG, "BT device disconnected – scheduling reconnect")
                     crashlytics.log("BT device disconnected: $savedDeviceAddress")
+                    FileLogger.append(this@GeoDataForegroundService, "BT device disconnected: $savedDeviceAddress")
                     updateNotification("ELD disconnected – reconnecting...")
                     scheduleReconnect()
                 }
                 BluetoothDevice.ACTION_ACL_CONNECTED -> {
                     Log.d(TAG, "BT device reconnected")
                     crashlytics.log("BT device reconnected: $savedDeviceAddress")
+                    FileLogger.append(this@GeoDataForegroundService, "BT device reconnected: $savedDeviceAddress")
                     cancelReconnect()
                     reconnectAttempts = 0
                     // Re-register the OBD handler so data keeps flowing
@@ -122,6 +124,7 @@ class GeoDataForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         crashlytics.log("GeoDataForegroundService created")
+        FileLogger.append(this, "onCreate() — service instance created")
         db = GeoDataDatabase(this)
         createNotificationChannel()
         registerNetworkCallback()
@@ -131,17 +134,20 @@ class GeoDataForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             crashlytics.log("GeoDataForegroundService stop requested")
+            FileLogger.append(this, "onStartCommand() — ACTION_STOP received")
             clearSavedPrefs()
             stopSelf()
             return START_NOT_STICKY
         }
         crashlytics.log("GeoDataForegroundService onStartCommand()")
+        FileLogger.append(this, "GeoDataForegroundService onStartCommand()")
         val prefs = getSharedPreferences(GeoDataPrefs.PREFS_NAME, Context.MODE_PRIVATE)
 
         val deviceAddress: String
         if (intent != null &&
             !intent.getStringExtra(EXTRA_DEVICE_ADDRESS).isNullOrEmpty()) {
             crashlytics.log("GeoDataForegroundService if condition")
+            FileLogger.append(this, "onStartCommand() — fresh start with device info from intent")
             apiUrl        = intent.getStringExtra(EXTRA_API_URL)        ?: ""
             token         = intent.getStringExtra(EXTRA_TOKEN)          ?: ""
             deviceAddress = intent.getStringExtra(EXTRA_DEVICE_ADDRESS) ?: ""
@@ -154,13 +160,19 @@ class GeoDataForegroundService : Service() {
             deviceAddress = prefs.getString(GeoDataPrefs.KEY_DEVICE,  "") ?: ""
             apiUrl        = prefs.getString(GeoDataPrefs.KEY_API_URL, "") ?: ""
             token         = prefs.getString(GeoDataPrefs.KEY_TOKEN,   "") ?: ""
+            FileLogger.append(
+                this,
+                "onStartCommand() — resumed from saved prefs (no intent extras), device=$deviceAddress"
+            )
         }
         crashlytics.setCustomKey("eld_device_address", deviceAddress)
         crashlytics.setCustomKey("eld_api_url", apiUrl)
         crashlytics.log("GeoDataForegroundService -> data "+deviceAddress+"  "+ apiUrl)
+        FileLogger.append(this, "GeoDataForegroundService -> data "+deviceAddress+"  "+ apiUrl)
 
         if (apiUrl.isBlank()) {
             Log.e(TAG, "Cannot start – apiUrl is empty")
+            FileLogger.append(this, "onStartCommand() — stopping: apiUrl is blank")
             stopSelf()
             return START_NOT_STICKY
         }
@@ -171,6 +183,7 @@ class GeoDataForegroundService : Service() {
         val btAdapter = BluetoothAdapter.getDefaultAdapter()
         if (btAdapter == null || !btAdapter.isEnabled) {
             Log.w(TAG, "Bluetooth unavailable – stopping service")
+            FileLogger.append(this, "onStartCommand() — stopping: Bluetooth unavailable")
             clearSavedPrefs()
             stopSelf()
             return START_NOT_STICKY
@@ -193,6 +206,7 @@ class GeoDataForegroundService : Service() {
 
         super.onDestroy()
         crashlytics.log("GeoDataForegroundService onDestroy()")
+        FileLogger.append(this, "GeoDataForegroundService onDestroy()")
         cancelReconnect()
         try { unregisterReceiver(bluetoothReceiver) } catch (_: Exception) {}
         try { WherequbeService.getInstance().disconnect() } catch (_: Exception) {}
@@ -223,6 +237,7 @@ class GeoDataForegroundService : Service() {
                 val connected = WherequbeService.getInstance().connect(deviceAddress)
                 if (!connected) {
                     crashlytics.log("connect() returned false for $deviceAddress")
+                    FileLogger.append(this@GeoDataForegroundService, "connect() returned false for $deviceAddress")
                     Log.w(TAG, "connect() returned false for $deviceAddress")
                     scheduleReconnect()
                     return
@@ -234,6 +249,7 @@ class GeoDataForegroundService : Service() {
                 object : RequestHandler {
                     override fun onRecv(ctx: android.content.Context, request: BaseRequest) {
                         crashlytics.log("GeoDataForegroundService  onRecv()")
+                        FileLogger.append(this@GeoDataForegroundService, "GeoDataForegroundService  onRecv()")
                         val geoData = request.getObject() as? GeoData ?: return
                         executor.execute { handleGeoData(geoData) }
                     }
@@ -241,10 +257,12 @@ class GeoDataForegroundService : Service() {
             )
             Log.d(TAG, "OBD session started for $deviceAddress")
             crashlytics.log("OBD session started for $deviceAddress")
+            FileLogger.append(this@GeoDataForegroundService, "OBD session started for $deviceAddress")
         } catch (e: Exception) {
             Log.e(TAG, "OBD session error: ${e.message}")
             crashlytics.log("OBD session error for $deviceAddress")
             crashlytics.recordException(e)
+            FileLogger.append(this@GeoDataForegroundService, "OBD session error for $deviceAddress: ${e.message}")
             scheduleReconnect()
         }
     }
@@ -254,6 +272,10 @@ class GeoDataForegroundService : Service() {
             Log.e(TAG, "Max reconnect attempts reached – stopping service")
             crashlytics.recordException(
             Exception("ELD max reconnect attempts reached for $savedDeviceAddress, stopping service")
+            )
+            FileLogger.append(
+                this@GeoDataForegroundService,
+                "Max reconnect attempts reached for $savedDeviceAddress — stopping service"
             )
             clearSavedPrefs()
             mainHandler.post { stopSelf() }
@@ -285,6 +307,7 @@ class GeoDataForegroundService : Service() {
     // -------------------------------------------------------------------------
 
     private fun handleGeoData(data: GeoData) {
+
         handlePayload(geoDataToJson(data))
     }
 
@@ -295,6 +318,7 @@ class GeoDataForegroundService : Service() {
                 db.insert(json)
                 Log.w(TAG, "Upload failed – queued (pending: ${db.count()})")
                 crashlytics.log("GeoData upload failed, queued (pending=${db.count()})")
+                FileLogger.append(this@GeoDataForegroundService, "GeoData upload failed, queued (pending=${db.count()})")
                 updateNotification("Upload failed – ${db.count()} queued")
             } else {
                 updateNotification("Last upload: ${timeFormat.format(Date())}")
@@ -303,6 +327,7 @@ class GeoDataForegroundService : Service() {
             db.insert(json)
             Log.d(TAG, "Offline – queued (pending: ${db.count()})")
             crashlytics.log("GeoData queued offline (pending=${db.count()})")
+            FileLogger.append(this@GeoDataForegroundService, "GeoData upload failed, queued (pending=${db.count()})")
             updateNotification("Offline – ${db.count()} record(s) queued")
         }
     }
@@ -314,12 +339,14 @@ class GeoDataForegroundService : Service() {
         if (pending.isEmpty()) return
         Log.d(TAG, "Flushing ${pending.size} queued record(s)")
         crashlytics.log("Flushing ${pending.size} queued record(s)")
+        FileLogger.append(this@GeoDataForegroundService, "Flushing ${pending.size} queued record(s)")
         for ((id, payload) in pending) {
             if (uploadPayload(payload)) {
                 db.delete(id)
             } else {
                 Log.w(TAG, "Flush failed at record $id – will retry later")
                 crashlytics.log("GeoData flush failed at record $id, will retry")
+                FileLogger.append(this@GeoDataForegroundService, "GeoData flush failed at record $id, will retry")
                 break
             }
         }
@@ -508,8 +535,9 @@ class GeoDataForegroundService : Service() {
             }
         }
 
-        CrashlyticsHelper.reportFieldIssues(issues, json.toString(), savedDeviceAddress, "service")
+        CrashlyticsHelper.reportFieldIssues(this@GeoDataForegroundService,issues, json.toString(), savedDeviceAddress, "service")
         crashlytics.log("<<< GDFS Data>>>> "+json.toString())
+        FileLogger.append(this@GeoDataForegroundService, "<<< GDFS Data>>>> "+json.toString())
         return json.toString()
     }
 

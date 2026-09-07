@@ -12,7 +12,6 @@ import { showError, showToast } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { email, firstInvalid, minLength, required } from '../../Utils/validators';
 import { THEME } from '../../Constants/Theme';
-import { logger } from '../../core/logger';
 
 const SignIn = () => {
     const { login } = useSession();

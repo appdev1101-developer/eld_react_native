@@ -1,5 +1,5 @@
 import { Image, StyleSheet, View } from 'react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { moderateScale } from '../../Constants/PixelRatio';
 import HomeCard from './HomeCard';
 
@@ -30,6 +30,14 @@ const AllStatus: React.FC<Props> = ({
     const [remarks, setRemarks] = useState<string>('');
     const [remarksError, setRemarksError] = useState<string>('');
 
+
+    useEffect(() => { 
+        if (selectedStatus) 
+            { setRemarks(selectedStatus.description ?? ''); setRemarksError(''); } 
+        else 
+            { setRemarks(''); } }, 
+        [selectedStatus]);
+
     const handleConfirm = () => {
         if (!selectedStatus) {
             return;
@@ -46,7 +54,7 @@ const AllStatus: React.FC<Props> = ({
         setRemarksError('');
         onConfirm(selectedStatus, trimmedRemarks);
     };
-
+    
     return (
         <>
             {selectedStatus ? (
@@ -131,7 +139,7 @@ const AllStatus: React.FC<Props> = ({
                                     style={styles.img}
                                 />
                                 <Text style={styles.statusName}>{item.name}</Text>
-                                <Text style={styles.statusDesc}>{item.description}</Text>
+                                {/* <Text style={styles.statusDesc}>{item.description}</Text> */}
                             </HomeCard>
                         );
                     })}

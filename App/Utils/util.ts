@@ -13,6 +13,11 @@ function convertToMonthFormat(date: string, timezone?: string) : string
     return moment.tz(date, timezone ?? '').format('MMM DD');
 }
 
+function convertToLogDateFormat() : string
+{
+    return moment().format('DD-MM');
+}
+
 function convertToTimeFormat(time: string) : string
 {
     const timeObj = moment(time, 'HH:mm:ss');
@@ -140,7 +145,8 @@ const Util= {
     REFERENCE_DATE,
     convertDateToTimeStrFormat,
     getSecondsFromMidnight,
-    convertSecondsToTimeString
+    convertSecondsToTimeString,
+    convertToLogDateFormat
 }
 
 export default Util;

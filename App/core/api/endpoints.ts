@@ -6,6 +6,7 @@ export type ApprovalRequestType =
     | 'unidentifiedDriving';
 
 export const API = {
+    
     auth: {
         login: () => 'user/mobile/login',
         logout: (logSessionId: string | number) =>
@@ -57,5 +58,9 @@ export const API = {
     },
     mail: {
         send: (email: string) => `send/mail/${email}`
+    },
+    // Send logs
+    diagnostics: {
+        uploadLogs: () => 'error/data/log'
     }
 } as const;

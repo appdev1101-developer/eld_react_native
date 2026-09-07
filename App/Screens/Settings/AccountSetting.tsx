@@ -4,6 +4,7 @@ import {
     ImageSourcePropType,
     KeyboardAvoidingView,
     Platform,
+    Pressable,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -39,6 +40,8 @@ import { useAppConfig } from '../../core/hooks/useAppConfig';
 import LinearGradient from 'react-native-linear-gradient';
 import { GRADIENT_HEADER } from '../../Constants/Theme';
 import HomeHeader from '../../Components/Headers/HomeHeader';
+import { useDiagnosticLogs } from '../../core/hooks/useDiagnosticLogs';
+
 
 const SETTING_ITEMS: Array<{
     title: string;
@@ -79,6 +82,7 @@ const AccountSetting = ({
         (state: RootState) => state.User
     );
     const { configData } = useAppConfig();
+    const { sendDiagnosticLogs, sending: sendingLogs } = useDiagnosticLogs();
     const colors = useTheme();
     const headerTitle =
         headerTitleProp ?? route.params?.headerTitle ?? 'Account Settings';
@@ -549,7 +553,7 @@ const AccountSetting = ({
                             })}
                         </View>
 
-                        <Text
+                        {/* <Text
                             style={{
                                 fontFamily: FONTS.ProductSans.regular,
                                 color: '#848484',
@@ -560,7 +564,25 @@ const AccountSetting = ({
                             }}
                         >
                             Report a bug
+                        </Text> */}
+                        <Pressable
+                        onPress={sendDiagnosticLogs}
+                        disabled={sendingLogs}
+                        hitSlop={moderateScale(8)}
+                    >
+                        <Text
+                            style={{
+                                fontFamily: FONTS.ProductSans.regular,
+                                color: '#848484',
+                                fontSize: moderateScale(11),
+                                textDecorationLine: 'underline',
+                                textAlign: 'center',
+                                marginVertical: moderateScale(10)
+                            }}
+                        >
+                            {sendingLogs ? 'Sending diagnostic logs...' : 'Report a bug'}
                         </Text>
+                    </Pressable>
                     </View>
                 </ScrollView>
                 </KeyboardAvoidingView>
