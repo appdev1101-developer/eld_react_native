@@ -1,23 +1,20 @@
 import {
-    AppState,
-    AppStateStatus,
-    DeviceEventEmitter,
     Image,
     Pressable,
     StyleSheet,
     View
 } from 'react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useFocusEffect, useRoute } from '@react-navigation/native';
+import React from 'react';
+import { useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { moderateScale } from '../../Constants/PixelRatio';
 import NavigationService from '../../Services/Navigation';
 import { Icon, useTheme } from 'react-native-basic-elements';
-import GeoDataBackgroundService from '../../Utils/GeoDataService';
-import { resetEldConnectionTracking } from '../../Utils/EldConnectionBeep';
-import { THEME } from '../../Constants/Theme';
 
-const DATA_STALE_MS = 15_000;
+import { THEME } from '../../Constants/Theme';
+import { useEldConnection } from '../../core/hooks/useEldConnection';
+import { logger } from '../../core/logger';
+
 const HOME_ROUTE_NAME = 'MainHome';
 
 type Props = {
@@ -37,58 +34,10 @@ const HomeHeader: React.FC<Props> = ({
     const menuVisible = showMenu ?? !shouldShowBack;
     const colors = useTheme();
     const insets = useSafeAreaInsets();
-    const [isBluetoothConnected, setIsBluetoothConnected] = useState(false);
-    const lastDataTimeRef = useRef(0);
-
-    const refreshConnectionStatus = useCallback(async () => {
-        const savedAddress = await GeoDataBackgroundService.getSavedDeviceAddress();
-        if (!savedAddress) {
-            lastDataTimeRef.current = 0;
-            resetEldConnectionTracking();
-            setIsBluetoothConnected(false);
-            return;
-        }
-
-        const elapsed = Date.now() - lastDataTimeRef.current;
-        const hasRecentData =
-            lastDataTimeRef.current > 0 && elapsed <= DATA_STALE_MS;
-        setIsBluetoothConnected(hasRecentData);
-    }, []);
-
-    useEffect(() => {
-        const geoDataListener = DeviceEventEmitter.addListener('GeometrisData', () => {
-            lastDataTimeRef.current = Date.now();
-            setIsBluetoothConnected(true);
-        });
-
-        refreshConnectionStatus();
-
-        const staleCheckInterval = setInterval(refreshConnectionStatus, 5000);
-
-        const appStateListener = AppState.addEventListener(
-            'change',
-            (state: AppStateStatus) => {
-                if (state === 'active') {
-                    refreshConnectionStatus();
-                }
-            }
-        );
-
-        return () => {
-            geoDataListener.remove();
-            clearInterval(staleCheckInterval);
-            appStateListener.remove();
-        };
-    }, [refreshConnectionStatus]);
-
-    useFocusEffect(
-        useCallback(() => {
-            refreshConnectionStatus();
-        }, [refreshConnectionStatus])
-    );
+    const { isConnected: isBluetoothConnected} = useEldConnection();
 
     const iconColor = theme === 'dark' ? THEME.colors.textOnDark : colors.buttonColor;
-
+    logger.log("<<<<<<< Bluetooth current status is >>>>> "+isBluetoothConnected);
     return (
         <View style={[styles.headerContainer, { marginTop: insets.top }]}>
             <View style={[styles.sideSlot, shouldShowBack && styles.sideSlotWithBack]}>
@@ -122,7 +71,7 @@ const HomeHeader: React.FC<Props> = ({
                     accessibilityLabel={
                         isBluetoothConnected
                             ? 'Bluetooth device connected'
-                            : 'Bluetooth device disconnected'
+                            : 'Bluetooth device disconnected — attempting to reconnect'
                     }
                 />
             </View>

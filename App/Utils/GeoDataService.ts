@@ -87,6 +87,38 @@ const GeoDataBackgroundService = {
         }
         await NativeGeoDataService.playConnectionBeep();
     },
+
+    /**
+     * Whether the app is currently exempt from battery optimization. This
+     * matters specifically because a correctly-declared foreground service
+     * with START_STICKY can still be killed in the background on plenty of
+     * OEM Android skins (Xiaomi/MIUI, Samsung, Oppo, Vivo) unless the app
+     * is explicitly whitelisted — a separate mechanism from the foreground
+     * service APIs themselves.
+     */
+    async isIgnoringBatteryOptimizations(): Promise<boolean> {
+        if (Platform.OS !== 'android' || !NativeGeoDataService?.isIgnoringBatteryOptimizations) {
+            return true;
+        }
+        try {
+            return await NativeGeoDataService.isIgnoringBatteryOptimizations();
+        } catch {
+            return false;
+        }
+    },
+
+    /**
+     * Opens the system dialog asking the user to exempt the app from
+     * battery optimization. This is a user-facing system prompt — it
+     * can't be silently auto-granted, the driver has to approve it
+     * explicitly, same as any other permission dialog.
+     */
+    requestIgnoreBatteryOptimizations(): void {
+        if (Platform.OS !== 'android' || !NativeGeoDataService?.requestIgnoreBatteryOptimizations) {
+            return;
+        }
+        NativeGeoDataService.requestIgnoreBatteryOptimizations();
+    },
 };
 
 export default GeoDataBackgroundService;

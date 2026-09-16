@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { uploadDiagnosticLogs } from '../api/services/diagnosticApi';
 import { showError, showToast } from '../../Utils/toast';
+import { sendDebugCrashlyticsTest } from '../../core/hooks/useSession';
 
 export function useDiagnosticLogs() {
     const [sending, setSending] = useState(false);
@@ -23,6 +24,7 @@ export function useDiagnosticLogs() {
             }
         } finally {
             setSending(false);
+            sendDebugCrashlyticsTest();
         }
     }, [sending]);
 

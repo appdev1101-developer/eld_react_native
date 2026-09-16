@@ -43,6 +43,9 @@ import { showError } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
 import { THEME, GRADIENT_HEADER } from '../../Constants/Theme';
 import { StatusDataType, AllStatusData } from '../../core/shift_status';
+import { useRealtimeELDData } from '../../core/hooks/useRealtimeELDData';
+import Util from '../../Utils/util';
+
 
 
 const { width } = Dimensions.get('screen');
@@ -75,10 +78,14 @@ const Home = () => {
 
     const isFirstFocus = useRef(true);
 
+    const kmTomph= 0.621371;
+
     const currentStatus = useMemo(
         () => AllStatusData.find((item) => item.shift_status_id === hos?.shift_id),
         [hos?.shift_id]
     );
+
+    const { speed,speedTimeStamp,odometer,lat,lng,vin,lastUpdatedAt} = useRealtimeELDData();
 
     useFocusEffect(
         useCallback(() => {
@@ -195,6 +202,18 @@ const Home = () => {
                         <Text style={styles.greetingAccent}>Welcome Back</Text>
                     </Text>
 
+                    {/* {
+                         (<Text style={styles.statusText}>
+                            {`
+                             Speed : ${eldData?.speed ?? 'N/A'}\n
+                             Odometer : ${eldData?.odometer ?? '0.0'}\n
+                             Lat : ${eldData?.latitude ?? '0.0'}\n
+                             Lng : ${eldData?.longitude ?? '0.0'}\n
+                             Vin : ${eldData?.vin ?? ''}
+                            `}
+                        </Text>)
+                    } */}
+
                     <ArcProgressIndicator
                         strokeWidth={moderateScale(45)}
                         colors={
@@ -219,6 +238,46 @@ const Home = () => {
                             </Text>
                         </Pressable>
                     ) : null} */}
+                    <View style={{flex:1,flexDirection:'row', paddingHorizontal:10.0,}}>
+                        <View style={styles.speedContainer}>
+                            <Text style={styles.speedValue}>
+                                {speed !== null ? Math.round(speed * kmTomph) : '--'}
+                            </Text>
+                            <Text style={styles.speedUnit}>mph</Text>
+                        </View>
+                        <View style={styles.speedContainer}>
+                            <Text style={styles.speedValue}>
+                                {odometer !== null ? Math.round(odometer * kmTomph) : '--'}
+                            </Text>
+                            <Text style={styles.speedUnit}>miles</Text>
+                        </View>
+                        <View style={styles.speedContainer}>
+                            <Text style={styles.speedValue}>
+                                {lat !== null ? lat : '--'}
+                            </Text>
+                            <Text style={styles.speedUnit}>Lat</Text>
+                        </View>
+                        <View style={styles.speedContainer}>
+                            <Text style={styles.speedValue}>
+                                {lng !== null ? lng : '--'}
+                            </Text>
+                            <Text style={styles.speedUnit}>Lng</Text>
+                        </View>
+                        <View style={styles.speedContainer}>
+                            <Text style={styles.speedValue}>
+                                {vin ?? '--'}
+                            </Text>
+                            <Text style={styles.speedUnit}>Vin</Text>
+                        </View>
+                    </View>
+                    <View style={styles.speedContainer}>
+                            <Text style={styles.speedValue}>
+                                {Util.convertDateToTimeStrFormat(new Date(speedTimeStamp)) ?? '--'}
+                            </Text>
+                            <Text style={styles.speedUnit}>Time</Text>
+                    </View>
+                    
+
                     <View style={styles.statusTextContainer}>
                         <Icon
                             name="clock"
@@ -474,5 +533,22 @@ const styles = StyleSheet.create({
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(18),
         marginHorizontal: moderateScale(18) + 15
-    }
+    },
+    speedContainer: {
+        flex: 0.2,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: moderateScale(4)
+    },
+    speedValue: {
+        color: THEME.colors.textOnDark,
+        fontFamily: FONTS.ProductSans.bold,
+        fontSize: moderateScale(24)
+    },
+    speedUnit: {
+        color: THEME.colors.textAccent,
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(13),
+        marginTop: moderateScale(-4)
+    },
 });

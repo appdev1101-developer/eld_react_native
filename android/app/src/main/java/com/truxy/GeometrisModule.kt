@@ -205,16 +205,16 @@ class GeometrisModule(private val reactContext: ReactApplicationContext) :
         // Speed - merge with unidentified events speed if normal speed is 0.0
         var finalSpeed = data.vehicleSpeed
         if (finalSpeed == null) issues.nullFields.add("speed")
-        if ((finalSpeed ?: 0.0) == 0.0) {
-            try {
-                data.unidentifiedEventArrayList?.lastOrNull()?.vehicleSpeed?.let { eventSpeed ->
-                    if (eventSpeed > 0.0) finalSpeed = eventSpeed
-                }
-            } catch (e: Exception) {
-                issues.exceptions.add("speed_fallback" to e)
-            }
-            if ((finalSpeed ?: 0.0) == 0.0) issues.nullFields.add("speed_fallback_exhausted")
-        }
+        //if ((finalSpeed ?: 0.0) == 0.0) {
+        //    try {
+        //        data.unidentifiedEventArrayList?.lastOrNull()?.vehicleSpeed?.let { eventSpeed ->
+        //            if (eventSpeed > 0.0) finalSpeed = eventSpeed
+        //        }
+        //    } catch (e: Exception) {
+        //        issues.exceptions.add("speed_fallback" to e)
+        //    }
+        //    if ((finalSpeed ?: 0.0) == 0.0) issues.nullFields.add("speed_fallback_exhausted")
+        //}
         map.putDouble("speed", finalSpeed ?: 0.0)
         map.putString("speedTimestamp", data.vehicleSpeedTimestamp?.toString() ?: "")
 
@@ -255,33 +255,33 @@ class GeometrisModule(private val reactContext: ReactApplicationContext) :
             data.unidentifiedEventArrayList?.let { eventList ->
                 val eventsArray = Arguments.createArray()
                 eventList.forEach { event ->
-                    val eventMap = Arguments.createMap()
-                    event.timestamp?.let { eventMap.putDouble("timestamp", it.toDouble()) }
-                    event.reason?.let { eventMap.putInt("reason", it) }
-                    event.engTotalHours?.let { eventMap.putDouble("engineHours", it) }
-                    event.vehicleSpeed?.let { eventMap.putDouble("speed", it) }
-                    event.odometer?.let { eventMap.putDouble("odometer", it) }
-                    event.latitude?.let { eventMap.putDouble("latitude", it) }
-                    event.longitude?.let { eventMap.putDouble("longitude", it) }
-                    event.gpsTimestamp?.let { eventMap.putDouble("gpsTimestamp", it.toDouble()) }
-                    eventsArray.pushMap(eventMap)
+                        val eventMap = Arguments.createMap()
+                        event.timestamp?.let { eventMap.putDouble("timestamp", it.toDouble()) }
+                        event.reason?.let { eventMap.putInt("reason", it) }
+                        event.engTotalHours?.let { eventMap.putDouble("engineHours", it) }
+                        event.vehicleSpeed?.let { eventMap.putDouble("speed", it) }
+                        event.odometer?.let { eventMap.putDouble("odometer", it) }
+                        event.latitude?.let { eventMap.putDouble("latitude", it) }
+                        event.longitude?.let { eventMap.putDouble("longitude", it) }
+                        event.gpsTimestamp?.let { eventMap.putDouble("gpsTimestamp", it.toDouble()) }
+                        eventsArray.pushMap(eventMap)
+                    }
+                    map.putArray("unidentifiedEvents", eventsArray)
                 }
-                map.putArray("unidentifiedEvents", eventsArray)
+            } catch (e: Exception) {
+                issues.exceptions.add("unidentifiedEvents" to e)
             }
         } catch (e: Exception) {
-            issues.exceptions.add("unidentifiedEvents" to e)
+            issues.exceptions.add("geoDataToMap_top_level" to e)
         }
-    } catch (e: Exception) {
-        issues.exceptions.add("geoDataToMap_top_level" to e)
-    }
 
-    // Build a lightweight JSON snapshot purely for the Crashlytics report —
-    // WritableMap can't be re-read back out, so we track raw values separately.
-    val snapshot = "vin=${data.vin}, speed=${data.vehicleSpeed}, odometer=${data.odometer}, " +
-        "lat=${data.latitude}, lng=${data.longitude}, rpm=${data.engineRPM}"
-    CrashlyticsHelper.reportFieldIssues(reactContext,issues, snapshot, deviceAddress = connectedDeviceAddress, source = "module")
-    FileLogger.append(reactContext, " <<< GeoData Snapshot >>>"+snapshot)
-    return map
+        // Build a lightweight JSON snapshot purely for the Crashlytics report —
+        // WritableMap can't be re-read back out, so we track raw values separately.
+        val snapshot = "vin=${data.vin}, speed=${data.vehicleSpeed}, odometer=${data.odometer}, " +
+            "lat=${data.latitude}, lng=${data.longitude}, rpm=${data.engineRPM}"
+        CrashlyticsHelper.reportFieldIssues(reactContext,issues, snapshot, deviceAddress = connectedDeviceAddress, source = "module")
+        FileLogger.append(reactContext, " <<< GeoData Snapshot >>> "+snapshot)
+        return map
     }
 
     @ReactMethod

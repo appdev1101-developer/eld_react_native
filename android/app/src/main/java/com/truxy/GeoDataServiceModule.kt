@@ -3,9 +3,12 @@ package com.truxy
 import android.content.Intent
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
+import android.provider.Settings
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -26,6 +29,11 @@ class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
 
     init {
+        // Event name strings here must match App/core/ble/bleEvents.ts
+        // (ELD_EVENTS) exactly — that file is the single source of truth
+        // on the JS side; Kotlin can't import it directly, so if either
+        // string below ever changes, update bleEvents.ts too.
+
         // Forward native service data events to the RN JS thread
         GeoDataForegroundService.onGeoData = { jsonString ->
             if (reactContext.hasActiveReactInstance()) {
@@ -33,6 +41,21 @@ class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
                     reactContext
                         .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                         .emit("GeometrisData", jsonToWritableMap(JSONObject(jsonString)))
+                } catch (_: Exception) {}
+            }
+        }
+
+        // Forward real connect/disconnect transitions — this is the actual
+        // signal HomeHeader.tsx's red/green dot should be driven by,
+        // instead of inferring connection state from data recency alone.
+        GeoDataForegroundService.onConnectionStateChanged = { connected ->
+            if (reactContext.hasActiveReactInstance()) {
+                try {
+                    val map = Arguments.createMap()
+                    map.putBoolean("connected", connected)
+                    reactContext
+                        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                        .emit("BluetoothConnectionChanged", map)
                 } catch (_: Exception) {}
             }
         }
@@ -128,6 +151,54 @@ class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("BEEP_ERROR", e.message)
+        }
+    }
+
+    /**
+     * Whether the app is currently exempt from battery optimization. On
+     * plenty of OEM Android skins (Xiaomi/MIUI, Samsung, Oppo, Vivo, etc.),
+     * a correctly-declared foreground service with START_STICKY can still
+     * be killed in the background unless the app is explicitly whitelisted
+     * from the system's battery optimizer — this is a separate mechanism
+     * from the foreground-service APIs themselves, and neither Android's
+     * manifest permissions nor START_STICKY have any effect on it.
+     */
+    @ReactMethod
+    fun isIgnoringBatteryOptimizations(promise: Promise) {
+        try {
+            val powerManager = reactContext.getSystemService(android.content.Context.POWER_SERVICE) as PowerManager
+            promise.resolve(powerManager.isIgnoringBatteryOptimizations(reactContext.packageName))
+        } catch (e: Exception) {
+            promise.reject("BATTERY_OPT_CHECK_ERROR", e.message)
+        }
+    }
+
+    /**
+     * Opens the system dialog asking the user to exempt this app from
+     * battery optimization. This is a user-facing system prompt, not
+     * something that can be silently auto-granted — the driver has to
+     * explicitly approve it, same as any other Android permission dialog.
+     */
+    @ReactMethod
+    fun requestIgnoreBatteryOptimizations() {
+        try {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:${reactContext.packageName}")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            reactContext.startActivity(intent)
+        } catch (e: Exception) {
+            // Some OEM skins (notably older MIUI builds) don't implement
+            // this action at all — fall back to the general app settings
+            // screen rather than crashing.
+            try {
+                val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:${reactContext.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                reactContext.startActivity(fallback)
+            } catch (_: Exception) {
+            }
         }
     }
 }

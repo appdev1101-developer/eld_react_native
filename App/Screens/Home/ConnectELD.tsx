@@ -72,6 +72,39 @@ const ConnectELD = () => {
         );
     }, [navigation]);
 
+    /**
+     * Called only right after a fresh, explicit connection succeeds — not
+     * from the silent auto-skip path (the useEffect below that bypasses
+     * this screen entirely when onboarding is already done and a device
+     * was already connected in a previous session). Prompting every time
+     * the app launches, even after the user already declined once, would
+     * just be naggy; this is a one-time nudge at the moment it's most
+     * relevant — right after establishing the connection this exemption
+     * exists to protect.
+     */
+    const promptBatteryOptimizationIfNeeded = useCallback(async () => {
+        const isExempt = await GeoDataBackgroundService.isIgnoringBatteryOptimizations();
+        if (isExempt) {
+            goToDashboard();
+            return;
+        }
+
+        Alert.alert(
+            'Keep ELD Tracking Running',
+            'To keep receiving data from your ELD device while the app is in the background, allow this app to run without battery restrictions on the next screen.',
+            [
+                { text: 'Not Now', style: 'cancel', onPress: goToDashboard },
+                {
+                    text: 'Continue',
+                    onPress: () => {
+                        GeoDataBackgroundService.requestIgnoreBatteryOptimizations();
+                        goToDashboard();
+                    }
+                }
+            ]
+        );
+    }, [goToDashboard]);
+
     useEffect(() => {
         if (fromDrawer) {
             return;
@@ -125,7 +158,7 @@ const ConnectELD = () => {
             if (started) {
                 setMacAddress(normalizedMac);
                 Alert.alert('Success', 'Connected to ELD device successfully!', [
-                    { text: 'OK', onPress: goToDashboard }
+                    { text: 'OK', onPress: promptBatteryOptimizationIfNeeded }
                 ]);
                 return;
             }
@@ -235,7 +268,7 @@ const ConnectELD = () => {
                     [
                         {
                             text: 'OK',
-                            onPress: goToDashboard
+                            onPress: promptBatteryOptimizationIfNeeded
                         }
                     ]
                 );

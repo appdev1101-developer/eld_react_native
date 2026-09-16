@@ -34,7 +34,7 @@ export const sendDebugCrashlyticsTest = async() => {
 
 export async function performLogout(dispatch: AppDispatch): Promise<void> {
     
-    sendDebugCrashlyticsTest();
+    //sendDebugCrashlyticsTest();
     const logSessionId = await SessionManager.getLogSessionId();
     if (logSessionId && getIsOnline()) {
         try {

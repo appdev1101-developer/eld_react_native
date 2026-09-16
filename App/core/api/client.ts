@@ -128,12 +128,12 @@ apiClient.interceptors.response.use(
 
         if (!axiosError.response) {
 
-            logger.recordError(axiosError, `API network error: ${endpoint}\n ${axiosError.message}
-                \n ${axiosError.code}\n ${axiosError.config?.url}
-                \n ${axiosError.config?.baseURL}\n ${axiosError.config?.method}
-                \n ${axiosError.config?.headers}\n ${axiosError?.stack}
-                \n ${axiosError?.request}\n ${axiosError?.response}
-                `);
+            logger.recordError(axiosError, `API network error: ${endpoint}\n ${axiosError.message}`);
+                // \n ${axiosError.code}\n ${axiosError.config?.url}
+                // \n ${axiosError.config?.baseURL}\n ${axiosError.config?.method}
+                // \n ${axiosError.config?.headers}\n ${axiosError?.stack}
+                // \n ${axiosError?.request}\n ${axiosError?.response}
+                // `);
             
             return Promise.reject({
                 statusCode: 0,
