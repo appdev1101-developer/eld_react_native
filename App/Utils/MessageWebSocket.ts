@@ -57,11 +57,26 @@ class MessageWebSocket {
         });
     }
 
-    fetchTotalMessages(senderId: number, receiverId: number) {
+    getPreviousMessages(receiverId: number, isGroup: boolean)
+    {
+        this.client.send({
+            sendType: 'get_previous_messages',
+            recieverId: receiverId,
+            isGroup
+        });
+    }
+
+    // fetchTotalMessages(senderId: number, receiverId: number) {
+    //     this.client.send({
+    //         sendType: 'totalMsg',
+    //         // senderId,
+    //         // receiverId
+    //     });
+    // }
+
+    fetchTotalMessages() {
         this.client.send({
             sendType: 'totalMsg',
-            senderId,
-            receiverId
         });
     }
 
@@ -145,7 +160,7 @@ class MessageWebSocket {
     waitForMessages(
         sendType: WsReceiveType | WsReceiveType[],
         sendFn: () => void,
-        timeoutMs = 8000
+        timeoutMs = 5000 ///Todo : previous value is 8000
     ): Promise<Record<string, unknown>[]> {
         return this.client.waitForMessages(sendType, sendFn, timeoutMs);
     }
@@ -211,12 +226,12 @@ export const wsTotalMsgToChatPreview = (msg: WsTotalMsg, currentUserId: number) 
         : msg.sender_id;
 
     return {
-        id: isGroup ? `group-${peerId}` : `chat-${peerId}`,
+        id: isGroup ? `${peerId}` : `${peerId}`,
         receiverId: peerId,
         name: isGroup
-            ? `Group ${peerId}`
+            ? `${msg.group_name}` //Group ${peerId}
             : msg.sender_id === currentUserId
-                ? msg.reciever_name ?? 'Chat'
+                ? msg.receiver_name ?? 'Chat'
                 : msg.sender_name ?? 'Chat',
         avatar: msg.image_url ?? '',
         lastMessage: msg.content,

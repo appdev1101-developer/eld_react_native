@@ -5,13 +5,14 @@ import {
     KeyboardAvoidingView,
     Platform,
     Pressable,
+    SectionList,
     StyleSheet,
     TextInput,
     TextStyle,
     View
 } from 'react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSafeAreaInsets,SafeAreaView } from 'react-native-safe-area-context';
 import { Container, Icon, Text } from 'react-native-basic-elements';
 import AppStatusBar from '../../Components/AppStatusBar';
 import LinearGradient from 'react-native-linear-gradient';
@@ -26,6 +27,9 @@ import { ChatThreadParams, WsChatMessage } from '../../Model/Message';
 import messageWebSocket, { wsMessageToChatMessage } from '../../Utils/MessageWebSocket';
 import moment from 'moment';
 import { GRADIENT_HEADER } from '../../Constants/Theme';
+import Util from '../../Utils/util';
+import { messagingApi } from '../../core/api/services/messagingApi';
+import { isSuccess } from '../../core/api/types/common';
 
 type ChatThreadRouteParams = {
     ChatThread: ChatThreadParams;
@@ -45,8 +49,8 @@ const ChatThread = () => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState('');
     const [loading, setLoading] = useState(true);
-    const listRef = useRef<FlatList>(null);
-
+    const listRef = useRef<SectionList>(null);
+    
     const appendMessage = useCallback(
         (msg: WsChatMessage) => {
             const chatMsg = wsMessageToChatMessage(msg, senderId);
@@ -60,6 +64,24 @@ const ChatThread = () => {
         [senderId]
     );
 
+    const chatSections = useMemo(() => {
+    const chatSectionGroup: { [key: string]: ChatMessage[] } = {};
+    messages.forEach((msg) => {
+        // Fallback to current time if sent_time is missing
+        const title = Util.getSectionTitle(msg.time || new Date().toISOString()); 
+        
+        if (!chatSectionGroup[title]) {
+        chatSectionGroup[title] = [];
+        }
+        chatSectionGroup[title].push(msg);
+    });
+
+    return Object.keys(chatSectionGroup).map((title) => ({
+        title,
+        data: chatSectionGroup[title],
+    }));
+    }, [messages]);
+
     useEffect(() => {
         if (!senderId || !receiverId) {
             setLoading(false);
@@ -67,11 +89,11 @@ const ChatThread = () => {
         }
 
         let mounted = true;
-
+        console.log("<<<Load chat ()>>>");
         const loadChat = async () => {
             try {
                 await messageWebSocket.ensureConnected();
-                messageWebSocket.authenticateChat(senderId, receiverId, isGroup);
+                messageWebSocket.getPreviousMessages(receiverId, isGroup);
                 messageWebSocket.markAsRead({
                     senderId,
                     receiverId,
@@ -117,24 +139,57 @@ const ChatThread = () => {
     }, [senderId, receiverId, isGroup, appendMessage]);
 
     useEffect(() => {
+        // if (messages.length > 0) {
+        //     listRef.current?.scrollToEnd({ animated: true });
+        // }
         if (messages.length > 0) {
-            listRef.current?.scrollToEnd({ animated: true });
+            // // 1. Get the index of the last section
+            // const lastSectionIndex = chatSectionGroup.l - 1;
+            
+            // // 2. Get the index of the last item inside that section
+            // const lastItemIndex = sectionsData[lastSectionIndex].data.length - 1;
+
+            listRef.current?.getScrollResponder()?.scrollToEnd({animated: true});
         }
     }, [messages.length]);
 
-    const sendMessage = async () => {
+    const handleSelectImage = async () => {
+        try
+        {
+            const asset = await Util.selectImageFromStorage();
+
+            if (!asset) {
+                return;
+            }
+            console.log('Selected image:', asset);
+            const uploadImageResponse = await messagingApi.uploadChatImage(asset);
+            if (isSuccess(uploadImageResponse)) 
+            {
+                await sendMessage(uploadImageResponse.data.image_url);
+            }
+        }
+        catch(error)
+        {
+            console.log('error '+error);
+        }
+    };
+
+    const sendMessage = async (imageUrl?: string) => {
         const trimmed = inputText.trim();
-        if (!trimmed || !senderId || !receiverId) return;
+        if ((!trimmed && !imageUrl) || !senderId || !receiverId) return;
 
-        const optimistic: ChatMessage = {
-            id: `local-${Date.now()}`,
-            senderId: String(senderId),
-            text: trimmed,
-            time: moment().format('h:mm A'),
-            isMine: true
-        };
+        // const optimistic: ChatMessage = {
+        //     id: `local-${Date.now()}`,
+        //     senderId: String(senderId),
+        //     text: trimmed,
+        //     time: new Date().toLocaleDateString(),
+        //     isMine: true
+        // };
 
-        setMessages((prev) => [...prev, optimistic]);
+        // console.log("New message : "+JSON.stringify(optimistic));
+        // console.log("senderId : "+senderId+" - "+receiverId+" - "+masterId+" - "+masterCompanyId);
+
+        //setMessages((prev) => [...prev, optimistic]);
         setInputText('');
 
         try {
@@ -145,6 +200,7 @@ const ChatThread = () => {
                     groupId: receiverId,
                     content: trimmed,
                     masterId,
+                    imageUrl,
                     masterCompanyId
                 });
             } else {
@@ -153,12 +209,13 @@ const ChatThread = () => {
                     receiverId,
                     content: trimmed,
                     masterId,
+                    imageUrl,
                     masterCompanyId
                 });
             }
         } catch (error) {
             console.warn('Send message failed', error);
-            setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+            //setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
             setInputText(trimmed);
         }
     };
@@ -174,11 +231,11 @@ const ChatThread = () => {
 
     const renderMessage = ({ item }: { item: ChatMessage }) => (
         <View>
-            {item.dateLabel ? (
+            {/* {item.dateLabel ? (
                 <View style={styles.dateSeparator}>
                     <Text style={styles.dateText}>{item.dateLabel}</Text>
                 </View>
-            ) : null}
+            ) : null} */}
             <View
                 style={[
                     styles.messageRow,
@@ -207,29 +264,26 @@ const ChatThread = () => {
                         />
                     ) : null}
 
-                    {/* {ToDo: Error occured need to check while I will work on messaging} */}
-                    {/* {item.text ? (
+                    {item.text ? (
                         <Text
-                            style={[
-                                styles.messageText,
-                                item.isMine
-                                    ? styles.messageTextMine
-                                    : styles.messageTextOther
-                            ]}
+                            style={{
+                                ...styles.messageText,
+                                ...(item.isMine ? styles.messageTextMine
+                                    : styles.messageTextOther)
+                            }}
                         >
                             {item.text}
                         </Text>
                     ) : null}
                     <Text
-                        style={[
-                            styles.messageTime,
-                            item.isMine
-                                ? styles.messageTimeMine
-                                : styles.messageTimeOther
-                        ]}
+                        style={{
+                            ...styles.messageTime,
+                            ...(item.isMine ? styles.messageTimeMine
+                                : styles.messageTimeOther)
+                        }}
                     >
-                        {item.time}
-                    </Text> */}
+                        {Util.getSectionItemTime(item.time)}
+                    </Text>
                 </View>
             </View>
         </View>
@@ -283,10 +337,9 @@ const ChatThread = () => {
                         </Pressable>
                     </View>
                 </View>
-
                 <KeyboardAvoidingView
                     style={styles.bodyCard}
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     keyboardVerticalOffset={moderateScale(10)}
                 >
                     {loading ? (
@@ -297,11 +350,31 @@ const ChatThread = () => {
                             />
                         </View>
                     ) : (
-                        <FlatList
+                        // <FlatList
+                        //     ref={listRef}
+                        //     data={messages}
+                        //     keyExtractor={(item) => item.id}
+                        //     renderItem={renderMessage}
+                        //     contentContainerStyle={styles.messageList}
+                        //     showsVerticalScrollIndicator={false}
+                        //     ListEmptyComponent={
+                        //         <View style={styles.emptyWrap}>
+                        //             <Text style={styles.emptyText}>
+                        //                 No messages yet. Say hello!
+                        //             </Text>
+                        //         </View>
+                        //     }
+                        // />
+                        <SectionList
                             ref={listRef}
-                            data={messages}
+                            sections={chatSections}
                             keyExtractor={(item) => item.id}
                             renderItem={renderMessage}
+                            renderSectionHeader={({ section: { title } }) => (
+                            <View style={styles.dateSeparator}>
+                                        <Text style={styles.dateText}>{title}</Text>
+                                    </View>
+                            )}
                             contentContainerStyle={styles.messageList}
                             showsVerticalScrollIndicator={false}
                             ListEmptyComponent={
@@ -315,7 +388,8 @@ const ChatThread = () => {
                     )}
 
                     <View style={styles.inputBar}>
-                        <Pressable style={styles.attachBtn}>
+                        <Pressable style={styles.attachBtn}
+                            onPress={handleSelectImage}>
                             <Icon
                                 name="plus"
                                 type="Feather"
@@ -334,7 +408,7 @@ const ChatThread = () => {
                         {inputText.trim() ? (
                             <Pressable
                                 style={styles.sendBtn}
-                                onPress={sendMessage}
+                                onPress={() => sendMessage()}
                             >
                                 <Icon
                                     name="send"
@@ -343,20 +417,12 @@ const ChatThread = () => {
                                     color="#fff"
                                 />
                             </Pressable>
-                        ) : (
-                            <Pressable style={styles.micBtn}>
-                                <Icon
-                                    name="mic"
-                                    type="Feather"
-                                    size={moderateScale(20)}
-                                    color="#697386"
-                                />
-                            </Pressable>
-                        )}
+                        ) : null}
                     </View>
                 </KeyboardAvoidingView>
             </LinearGradient>
         </Container>
+        
     );
 };
 

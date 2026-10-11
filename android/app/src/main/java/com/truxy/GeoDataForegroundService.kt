@@ -33,6 +33,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.math.round
 
 /**
  * A foreground service that maintains the Geometris/ELD connection in the background,
@@ -67,7 +68,7 @@ class GeoDataForegroundService : Service() {
     // second doesn't spam the JS bridge with redundant events.
     private var lastKnownConnected: Boolean? = null
     private var lastDataReceivedAt: Long = 0L
-
+    
     // Watchdog: ACTION_ACL_DISCONNECTED only fires for an actual radio-level
     // Bluetooth disconnect. It does NOT fire if the link stays up but the
     // OBD device silently stops sending measurements (a protocol-level
@@ -214,7 +215,7 @@ class GeoDataForegroundService : Service() {
         val btAdapter = BluetoothAdapter.getDefaultAdapter()
         if (btAdapter == null || !btAdapter.isEnabled) {
             Log.w(TAG, "Bluetooth unavailable – stopping service")
-            crashlytics.log("onStartCommand -> stopping: Bluetooth unavailable")
+            crashlytics.log("onSxtartCommand -> stopping: Bluetooth unavailable")
             FileLogger.append(this, "onStartCommand() — stopping: Bluetooth unavailable")
             clearSavedPrefs()
             stopSelf()
@@ -277,7 +278,10 @@ class GeoDataForegroundService : Service() {
         notifyConnectionState(false)
         cancelReconnect()
         try { unregisterReceiver(bluetoothReceiver) } catch (_: Exception) {}
-        try { WherequbeService.getInstance().disconnect() } catch (_: Exception) {}
+        try { WherequbeService.getInstance().disconnect() } catch (e: Exception) {
+            crashlytics.log("disconnect() - Exception : "+e)
+            FileLogger.append(this, "disconnect() - Exception : "+e)
+        }
         try {
             val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             cm.unregisterNetworkCallback(networkCallback)
@@ -548,6 +552,11 @@ class GeoDataForegroundService : Service() {
             .edit().clear().apply()
     }
 
+    private fun kmhToMph(speedKmh: Double): Int {
+        val kmToMph = 0.621371
+        return round(speedKmh * kmToMph).toInt()
+    }
+
     private fun geoDataToJson(data: GeoData): String {
         val issues = CrashlyticsHelper.FieldIssues()
         val json = JSONObject().apply {
@@ -562,7 +571,7 @@ class GeoDataForegroundService : Service() {
 
                 // Odometer
                 if (data.odometer == null) issues.nullFields.add("odometer")
-                put("odometer", data.odometer ?: 0.0)
+                put("odometer", kmhToMph(data.odometer ?: 0.0))
                 put("odometerTimestamp", data.odometerTimestamp?.toString() ?: "")
 
                 // Engine hours
@@ -585,7 +594,7 @@ class GeoDataForegroundService : Service() {
                 //    }
                 //    if ((finalSpeed ?: 0.0) == 0.0) issues.nullFields.add("speed_fallback_exhausted")
                 //}
-                put("speed", finalSpeed ?: 0.0)
+                put("speed", kmhToMph(finalSpeed ?: 0.0))
                 put("speedTimestamp", data.vehicleSpeedTimestamp?.toString() ?: "")
 
                 // Engine RPM

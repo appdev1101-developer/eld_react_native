@@ -1,5 +1,6 @@
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Image,
     Pressable,
@@ -20,6 +21,8 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../Redux/store';
 import messageWebSocket, { wsContactToDisplay } from '../../Utils/MessageWebSocket';
 import { WsContact, WsGroup } from '../../Model/Message';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 type ContactItem = {
     id: string;
@@ -30,6 +33,7 @@ type ContactItem = {
 
 const CreateGroupChat = () => {
     const { userData } = useSelector((state: RootState) => state.User);
+    const messages = useSelector((state: RootState) => state.Messages);
     const senderId = userData?.id ?? 0;
     const masterId = userData?.master_id ?? senderId;
     const masterCompanyId = userData?.master_company_id ?? masterId;
@@ -41,6 +45,7 @@ const CreateGroupChat = () => {
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
     const [groupName, setGroupName] = useState('');
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         if (!senderId) {
@@ -50,16 +55,11 @@ const CreateGroupChat = () => {
 
         const loadContacts = async () => {
             try {
-                await messageWebSocket.ensureConnected();
-                const results = await messageWebSocket.waitForMessages(
-                    ['driver_list', 'user_list', 'master_list'],
-                    () => messageWebSocket.fetchUserInfo(senderId, masterId)
-                );
-
+                const results = messages.driverList ?? []
                 const merged = new Map<number, ContactItem>();
                 (results as WsContact[]).forEach((item) => {
                     if (item.id === senderId) return;
-                    const display = wsContactToDisplay(item);
+                    const display=wsContactToDisplay(item);
                     merged.set(item.id, {
                         id: display.id,
                         name: display.name,
@@ -67,7 +67,6 @@ const CreateGroupChat = () => {
                         receiverId: item.id
                     });
                 });
-
                 setContacts(Array.from(merged.values()));
             } catch (error) {
                 console.warn('CreateGroupChat load error', error);
@@ -98,14 +97,22 @@ const CreateGroupChat = () => {
     const handleCreate = async () => {
         if (selected.length < 2 || !senderId || creating) return;
 
-        const names = selected
-            .map((id) => contacts.find((c) => c.receiverId === id)?.name)
-            .filter(Boolean);
-        const resolvedGroupName =
-            groupName.trim() ||
-            activeChip ||
-            names.slice(0, 2).join(', ') ||
-            'New Group';
+        if (!groupName || groupName.trim() === "") {
+            // Show dialog (using React Native's built-in Alert)
+            Alert.alert("Error", "Enter group name");
+            
+            // Return to stop further execution of the function
+            return;
+        }
+
+        // const names = selected
+        //     .map((id) => contacts.find((c) => c.receiverId === id)?.name)
+        //     .filter(Boolean);
+        // const resolvedGroupName =
+        //     groupName.trim() ||
+        //     activeChip ||
+        //     names.slice(0, 2).join(', ') ||
+        //     'New Group';
 
         setCreating(true);
 
@@ -117,7 +124,7 @@ const CreateGroupChat = () => {
                 () =>
                     messageWebSocket.createGroup({
                         senderId,
-                        groupName: resolvedGroupName,
+                        groupName: groupName,
                         masterId,
                         masterCompanyId,
                         ids: senderId,
@@ -130,9 +137,9 @@ const CreateGroupChat = () => {
             const groupId = created?.group_id ?? created?.id;
 
             if (groupId) {
-                NavigationService.navigate('ChatThread', {
+                NavigationService.replace('ChatThread', {
                     receiverId: groupId,
-                    chatName: resolvedGroupName,
+                    chatName: groupName,
                     isGroup: true
                 });
             }
@@ -145,14 +152,15 @@ const CreateGroupChat = () => {
 
     return (
         <Container style={styles.container}>
-            <AppStatusBar />
+            {/* <AppStatusBar /> */}
             <View style={styles.topBar}>
-                <BackHeader title="Create a new Group" />
+                <BackHeader title="Create a group" showBack={true} />     
                 <Pressable
-                    style={[
-                        styles.createBtn,
-                        (selected.length < 2 || creating) && styles.createBtnDisabled
-                    ]}
+                    style={{
+                        ...styles.createBtn,
+                        marginTop: insets.top,
+                        ...((selected.length < 2 || creating) && styles.createBtnDisabled)
+                    }}
                     onPress={handleCreate}
                     disabled={selected.length < 2 || creating}
                 >
@@ -170,7 +178,7 @@ const CreateGroupChat = () => {
                     color="#A5ACB8"
                 />
                 <TextInput
-                    placeholder="Group name (optional)"
+                    placeholder="Group name"
                     placeholderTextColor="#A5ACB8"
                     value={groupName}
                     onChangeText={setGroupName}
@@ -194,7 +202,7 @@ const CreateGroupChat = () => {
                 />
             </View>
 
-            <Text style={styles.sectionLabel}>Suggestions</Text>
+            <Text style={styles.sectionLabel}>Choose Group Category</Text>
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -284,13 +292,15 @@ const styles = StyleSheet.create({
     },
     topBar: {
         flexDirection: 'row',
+        justifyContent:'space-between',
         alignItems: 'center',
         paddingRight: moderateScale(15)
     },
     createBtn: {
         backgroundColor: '#7051CF',
         borderRadius: moderateScale(8),
-        paddingHorizontal: moderateScale(16),
+        marginTop:moderateScale(12),
+        paddingHorizontal: moderateScale(12),
         paddingVertical: moderateScale(8)
     },
     createBtnDisabled: {

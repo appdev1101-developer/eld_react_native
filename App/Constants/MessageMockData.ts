@@ -1,3 +1,4 @@
+// Todo: We need to remove this file beacuse of mock data
 import { ImageSourcePropType } from 'react-native';
 import { DEFAULT_USER_AVATAR_URI } from './ProfileImage';
 

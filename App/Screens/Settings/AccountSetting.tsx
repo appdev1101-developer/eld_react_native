@@ -35,7 +35,7 @@ import { UserDataType } from '../../Model/User';
 import { requireOnline } from '../../core/network/requireOnline';
 import { showError, showToast } from '../../Utils/toast';
 import { getApiErrorMessage } from '../../Utils/apiErrorMessage';
-import { email as validateEmail, firstInvalid, required } from '../../Utils/validators';
+import { email as validateEmail, firstInvalid, required, validateMobileNumber } from '../../Utils/validators';
 import { useAppConfig } from '../../core/hooks/useAppConfig';
 import LinearGradient from 'react-native-linear-gradient';
 import { GRADIENT_HEADER } from '../../Constants/Theme';
@@ -137,10 +137,18 @@ const AccountSetting = ({
         )?.language_name ?? 'English';
 
     const handleUpdateProfile = () => {
+        const driverId = String(userInfo?.driver_id ?? userData?.driver_id ?? '');
+
         const validation = firstInvalid(
             required(firstName, 'First name'),
             required(lastName, 'Last name'),
-            validateEmail(email)
+            validateEmail(email),
+            validateMobileNumber(phone),
+            required(licenseNumber, 'License Number'),
+            required(address, 'Address'),
+            required(pincode, 'Pincode'),
+            required(timezone, 'Timezone'),
+            required(driverId, 'Driving Id'),
         );
 
         if (!validation.valid) {
@@ -148,17 +156,16 @@ const AccountSetting = ({
             return;
         }
 
-        const driverId = String(userInfo?.driver_id ?? userData?.driver_id ?? '');
+        
 
-        if (!driverId) {
-            showError('Driver ID is missing');
-            return;
-        }
-
+        // if (!driverId) {
+        //     showError('Driver ID is missing');
+        //     return;
+        // }
         if (!requireOnline()) {
             return;
         }
-
+        
         setSaving(true);
 
         settingsApi.updateAccountLegacy({
@@ -168,7 +175,7 @@ const AccountSetting = ({
             email: email.trim(),
             phone: phone.trim(),
             language_id: languageId.trim() || '1',
-            pincode: pincode.trim(),
+            pincode: pincode?.trim(),
             address: address.trim(),
             timezone: timezone.trim(),
             username: username.trim(),

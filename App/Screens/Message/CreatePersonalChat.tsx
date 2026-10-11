@@ -19,6 +19,8 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../Redux/store';
 import messageWebSocket, { wsContactToDisplay } from '../../Utils/MessageWebSocket';
 import { WsContact } from '../../Model/Message';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ContactPreview, getMessagesCache } from '../../core/cache/messagesCache';
 
 type ContactItem = {
     id: string;
@@ -29,13 +31,15 @@ type ContactItem = {
 
 const CreatePersonalChat = () => {
     const { userData } = useSelector((state: RootState) => state.User);
+    const messages = useSelector((state: RootState) => state.Messages);
     const senderId = userData?.id ?? 0;
     const masterId = userData?.master_id ?? senderId;
 
     const [search, setSearch] = useState('');
-    const [selected, setSelected] = useState<number | null>(null);
+    // const [selected, setSelected] = useState<number | null>(null);
     const [contacts, setContacts] = useState<ContactItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         if (!senderId) {
@@ -45,16 +49,11 @@ const CreatePersonalChat = () => {
 
         const loadContacts = async () => {
             try {
-                await messageWebSocket.ensureConnected();
-                const results = await messageWebSocket.waitForMessages(
-                    ['driver_list', 'user_list', 'master_list'],
-                    () => messageWebSocket.fetchUserInfo(senderId, masterId)
-                );
-
+                const results = messages.driverList ?? []
                 const merged = new Map<number, ContactItem>();
                 (results as WsContact[]).forEach((item) => {
                     if (item.id === senderId) return;
-                    const display = wsContactToDisplay(item);
+                    const display=wsContactToDisplay(item);
                     merged.set(item.id, {
                         id: display.id,
                         name: display.name,
@@ -82,11 +81,11 @@ const CreatePersonalChat = () => {
         [contacts, search]
     );
 
-    const handleCreate = () => {
-        if (!selected) return;
-        const contact = contacts.find((c) => c.receiverId === selected);
-        NavigationService.navigate('ChatThread', {
-            receiverId: selected,
+    const handleCreate = (selectedReceiver : number) => {
+        //if (!selected) return;
+        const contact = contacts.find((c) => c.receiverId === selectedReceiver);
+        NavigationService.replace('ChatThread', {
+            receiverId: selectedReceiver,
             chatName: contact?.name ?? 'New Chat',
             isGroup: false,
             avatar: contact?.avatar
@@ -97,17 +96,18 @@ const CreatePersonalChat = () => {
         <Container style={styles.container}>
             <AppStatusBar />
             <View style={styles.topBar}>
-                <BackHeader title="Create a new Chat" />
-                <Pressable
-                    style={[
-                        styles.createBtn,
-                        !selected && styles.createBtnDisabled
-                    ]}
+                <BackHeader title="Create a Chat" />
+                {/* <Pressable
+                    style={{
+                        ...styles.createBtn,
+                        marginTop: insets.top,
+                        ...(!selected && styles.createBtnDisabled)
+                    }}
                     onPress={handleCreate}
                     disabled={!selected}
                 >
                     <Text style={styles.createBtnText}>Create</Text>
-                </Pressable>
+                </Pressable> */}
             </View>
 
             <View style={styles.searchBox}>
@@ -140,18 +140,18 @@ const CreatePersonalChat = () => {
                     data={filteredContacts}
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => {
-                        const isSelected = selected === item.receiverId;
+                        //const isSelected = selected === item.receiverId;
                         return (
                             <Pressable
                                 style={styles.contactRow}
-                                onPress={() => setSelected(item.receiverId)}
+                                onPress={() => handleCreate(item.receiverId)}
                             >
                                 <Image
                                     source={getAvatarSource(item.avatar)}
                                     style={styles.avatar}
                                 />
                                 <Text style={styles.contactName}>{item.name}</Text>
-                                <View
+                                {/* <View
                                     style={[
                                         styles.checkbox,
                                         isSelected && styles.checkboxSelected
@@ -165,7 +165,7 @@ const CreatePersonalChat = () => {
                                             color="#fff"
                                         />
                                     ) : null}
-                                </View>
+                                </View> */}
                             </Pressable>
                         );
                     }}
@@ -192,6 +192,7 @@ const styles = StyleSheet.create({
     },
     topBar: {
         flexDirection: 'row',
+        justifyContent:'space-between',
         alignItems: 'center',
         paddingRight: moderateScale(15)
     },

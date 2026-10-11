@@ -6,12 +6,15 @@ import messageWebSocket, {
 } from '../../Utils/MessageWebSocket';
 import {
     ChatPreviewItem,
-    ContactPreview,
     getMessagesCache,
+    getUnreadMessageCount,
     invalidateMessagesCache,
     setMessagesCache,
     upsertChatPreview
 } from '../cache/messagesCache';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../../Redux/store';
+import { setMsgDriverList, setMsgGroupList, setRecentChatList } from '../../Redux/reducer/Messages';
 
 type UseRecentChatsOptions = {
     senderId: number;
@@ -40,91 +43,224 @@ function buildChatList(totalMessages: WsTotalMsg[], senderId: number) {
 }
 
 export function useRecentChats({ senderId, masterId }: UseRecentChatsOptions) {
+
+    const dispatch = useDispatch();
+    const messages = useSelector((state: RootState) => state.Messages);
+
     const [loading, setLoading] = useState(true);
     const [recentChats, setRecentChats] = useState<ChatPreviewItem[]>([]);
-    const [lastTalkedTo, setLastTalkedTo] = useState<ContactPreview[]>([]);
 
     const applyCache = useCallback(
         (cached: NonNullable<ReturnType<typeof getMessagesCache>>) => {
             setRecentChats(cached.recentChats);
-            setLastTalkedTo(cached.lastTalkedTo);
             setLoading(false);
         },
         []
     );
 
+    // const loadChats = useCallback(
+    //     async (options?: { force?: boolean }) => {
+    //         if (!senderId) {
+    //             setLoading(false);
+    //             return null;
+    //         }
+
+    //         const force = options?.force ?? false;
+    //         const messageCached = getMessagesCache();
+    //         console.log(`<<<< loadChats >>>>>> ${messageCached?.contactsLoaded} ${force}`);
+    //         if (!force) {
+    //             if (messageCached) {
+    //                 applyCache(messageCached);
+    //                 return messageCached;
+    //             }
+    //         }
+            
+    //         const shouldFetchContacts =
+    //                 force || !messageCached?.contactsLoaded;
+    //         setLoading(true);
+
+    //         try {
+    //             await messageWebSocket.ensureConnected();
+    //             const totalMessages = await messageWebSocket.waitForMessages(
+    //                 'totalMsg',
+    //                 () => messageWebSocket.fetchTotalMessages()
+    //             );
+
+    //             const chats = buildChatList(
+    //                 totalMessages as WsTotalMsg[],
+    //                 senderId
+    //             );
+
+    //             dispatch(setRecentChatList(chats));
+    //             setRecentChats(chats);
+
+    //             let driverList = messageCached?.driverList ?? [];
+    //             let groupList = messageCached?.groupList ?? [];
+                
+    //             if(shouldFetchContacts)
+    //             {
+    //                 const contacts = await messageWebSocket.waitForMessages(
+    //                 ['driver_list', 'group_list', 'master_list'],
+    //                 () => messageWebSocket.fetchUserInfo(senderId, masterId),
+    //                 5000
+    //                 );
+    //                 const wsContacts = contacts as WsContact[];
+    //                 // Combine driver_list + master_list
+    //                 driverList = wsContacts
+    //                     .filter(
+    //                         (contact) =>
+    //                             contact.sendType === 'driver_list' ||
+    //                             contact.sendType === 'master_list'
+    //                     );
+    //                 //console.log(" >>>> Driver List "+JSON.stringify(driverList));
+    //                 // Keep group_list separate
+    //                 groupList = wsContacts
+    //                     .filter((contact) => contact.sendType === 'group_list');
+    //                 dispatch(setMsgDriverList(driverList));
+    //                 dispatch(setMsgGroupList(groupList));
+    //             }
+                
+    //             const cached = { recentChats: chats, driverList: driverList, groupList: groupList,contactsLoaded: true};
+    //             setMessagesCache(cached);
+    //             return cached;
+    //         } catch (error) {
+    //             if (__DEV__) {
+    //                 console.warn('useRecentChats load failed', error);
+    //             }
+    //             return null;
+    //         } finally {
+    //             setLoading(false);
+    //         }
+    //     },
+    //     [masterId, senderId]
+    // );
+
     const loadChats = useCallback(
-        async (options?: { force?: boolean }) => {
-            if (!senderId) {
-                setLoading(false);
-                return null;
-            }
+    async (options?: { force?: boolean }) => {
+        if (!senderId) {
+            setLoading(false);
+            return null;
+        }
 
-            const force = options?.force ?? false;
-            if (!force) {
-                const cached = getMessagesCache();
-                if (cached) {
-                    applyCache(cached);
-                    return cached;
-                }
-            }
+        const force = options?.force ?? false;
+        const cached = getMessagesCache();
 
-            setLoading(true);
+        console.log(
+            `<<<< loadChats >>>> force=${force}, contactsLoaded=${cached?.contactsLoaded}`
+        );
 
-            try {
-                await messageWebSocket.ensureConnected();
+        // --------------------------------------------------
+        // INITIAL LOAD:
+        // Use cache immediately if available.
+        // Do NOT hit WebSocket again.
+        // --------------------------------------------------
+        if (!force && cached) {
+            applyCache(cached);
+            return cached;
+        }
 
-                const totalMessages = await messageWebSocket.waitForMessages(
+        setLoading(true);
+
+        try {
+            await messageWebSocket.ensureConnected();
+
+            // --------------------------------------------------
+            // Fetch recent chats
+            // --------------------------------------------------
+            const totalMessages =
+                await messageWebSocket.waitForMessages(
                     'totalMsg',
-                    () => messageWebSocket.fetchTotalMessages(senderId, senderId)
+                    () => messageWebSocket.fetchTotalMessages()
                 );
 
-                const chats = buildChatList(
-                    totalMessages as WsTotalMsg[],
-                    senderId
+            const chats = buildChatList(
+                totalMessages as WsTotalMsg[],
+                senderId
+            );
+
+            dispatch(setRecentChatList(chats));
+            setRecentChats(chats);
+
+            // --------------------------------------------------
+            // Fetch contacts
+            // Initial load without cache OR forced refresh
+            // --------------------------------------------------
+            let driverList = cached?.driverList ?? [];
+            let groupList = cached?.groupList ?? [];
+
+            const shouldFetchContacts =
+                force || !cached?.contactsLoaded;
+
+            if (shouldFetchContacts) {
+                const contacts =
+                    await messageWebSocket.waitForMessages(
+                        ['driver_list', 'group_list', 'master_list'],
+                        () =>
+                            messageWebSocket.fetchUserInfo(
+                                senderId,
+                                masterId
+                            ),
+                        5000
+                    );
+
+                const wsContacts = contacts as WsContact[];
+
+                // driver_list + master_list
+                driverList = wsContacts.filter(
+                    contact =>
+                        contact.sendType === 'driver_list' ||
+                        contact.sendType === 'master_list'
                 );
 
-                const contacts = await messageWebSocket.waitForMessages(
-                    ['driver_list', 'user_list', 'master_list'],
-                    () => messageWebSocket.fetchUserInfo(senderId, masterId),
-                    5000
+                // group_list
+                groupList = wsContacts.filter(
+                    contact =>
+                        contact.sendType === 'group_list'
                 );
 
-                const contactList = (contacts as WsContact[])
-                    .slice(0, 6)
-                    .map((contact) => ({
-                        id: String(contact.id),
-                        receiverId: contact.id,
-                        name:
-                            `${contact.first_name ?? ''} ${contact.last_name ?? ''}`.trim() ||
-                            'Unknown',
-                        avatar: contact.image_url ?? '',
-                        isGroup: false
-                    }));
-
-                setRecentChats(chats);
-                setLastTalkedTo(contactList);
-                const cached = { recentChats: chats, lastTalkedTo: contactList };
-                setMessagesCache(cached);
-                return cached;
-            } catch (error) {
-                if (__DEV__) {
-                    console.warn('useRecentChats load failed', error);
-                }
-                return null;
-            } finally {
-                setLoading(false);
+                dispatch(setMsgDriverList(driverList));
+                dispatch(setMsgGroupList(groupList));
             }
-        },
-        [applyCache, masterId, senderId]
-    );
+
+            // --------------------------------------------------
+            // Save everything in cache
+            // --------------------------------------------------
+            const newCache = {
+                recentChats: chats,
+                driverList,
+                groupList,
+                contactsLoaded: true,
+            };
+
+            setMessagesCache(newCache);
+
+            return newCache;
+        } catch (error) {
+            if (__DEV__) {
+                console.warn(
+                    'useRecentChats load failed',
+                    error
+                );
+            }
+
+            return null;
+        } finally {
+            setLoading(false);
+        }
+    },
+    [
+        senderId,
+        masterId,
+        applyCache,
+        dispatch,
+    ]
+);
 
     const handleNewMessage = useCallback(
         (payload: Record<string, unknown>) => {
             if (!senderId) {
                 return;
             }
-
             if (payload.sendType === 'totalMsg') {
                 const preview = wsTotalMsgToChatPreview(
                     payload as WsTotalMsg,
@@ -143,14 +279,14 @@ export function useRecentChats({ senderId, masterId }: UseRecentChatsOptions) {
                       ? msg.receiver_id ?? msg.reciever_id ?? 0
                       : msg.sender_id;
                 upsertChatPreview({
-                    id: isGroup ? `group-${peerId}` : `chat-${peerId}`,
+                    id: `${peerId}`,
                     receiverId: peerId,
                     name: isGroup
-                        ? `Group ${peerId}`
+                        ? (msg?.group_name ?? `Unknown Group`)
                         : msg.sender_id === senderId
                           ? msg.reciever_name ?? 'Chat'
                           : msg.sender_name ?? 'Chat',
-                    avatar: msg.image_url ?? '',
+                    avatar: '',
                     lastMessage: msg.content,
                     timestamp: formatChatTimestamp(msg.sent_time),
                     unread: msg.sender_id === senderId ? undefined : 1,
@@ -162,6 +298,7 @@ export function useRecentChats({ senderId, masterId }: UseRecentChatsOptions) {
             const cached = getMessagesCache();
             if (cached) {
                 setRecentChats(cached.recentChats);
+                dispatch(setRecentChatList(cached.recentChats));
             }
         },
         [senderId]
@@ -180,7 +317,8 @@ export function useRecentChats({ senderId, masterId }: UseRecentChatsOptions) {
     return {
         loading,
         recentChats,
-        lastTalkedTo,
+        driverList: messages.driverList,
+        groupList: messages.groupList,
         unreadCount,
         loadChats,
         refresh,

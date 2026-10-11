@@ -78,7 +78,7 @@ const Home = () => {
 
     const isFirstFocus = useRef(true);
 
-    const kmTomph= 0.621371;
+    //const kmTomph= 0.621371;
 
     const currentStatus = useMemo(
         () => AllStatusData.find((item) => item.shift_status_id === hos?.shift_id),
@@ -241,13 +241,15 @@ const Home = () => {
                     <View style={{flex:1,flexDirection:'row', paddingHorizontal:10.0,}}>
                         <View style={styles.speedContainer}>
                             <Text style={styles.speedValue}>
-                                {speed !== null ? Math.round(speed * kmTomph) : '--'}
+                                {/* {speed !== null ? Math.round(speed * kmTomph) : '--'} */}
+                                {speed}
                             </Text>
                             <Text style={styles.speedUnit}>mph</Text>
                         </View>
                         <View style={styles.speedContainer}>
                             <Text style={styles.speedValue}>
-                                {odometer !== null ? Math.round(odometer * kmTomph) : '--'}
+                                {/* {odometer !== null ? Math.round(odometer * kmTomph) : '--'} */}
+                                {odometer}
                             </Text>
                             <Text style={styles.speedUnit}>miles</Text>
                         </View>

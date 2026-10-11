@@ -16,16 +16,17 @@ interface Props {
 
 const ActivityLogTab: React.FC<Props> = ({logs,timezone, onEditLog }) => {
     
-    const renderItem = useCallback(({ item }: { item: HosGraphLogEntry }) => (
+    const renderItem = useCallback(({item,index}: { item: HosGraphLogEntry,index:number }) => (
         <ActivityLogItem
                 item={item}
                 timezone={timezone}
                 onEdit={onEditLog}
+                shouldBounce={index === 0}
             />
     ), [timezone, onEditLog]);
 
     const keyExtractor = useCallback(
-        (item: HosGraphLogEntry) => String(item.log_id),
+        (item: HosGraphLogEntry,index: number) => String(index),
         []
     );
 

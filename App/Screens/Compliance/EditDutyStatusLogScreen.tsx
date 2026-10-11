@@ -13,7 +13,7 @@ import {
 import { AppButton, Container } from 'react-native-basic-elements';
 import LinearGradient from 'react-native-linear-gradient';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, StackActions, useNavigation, useRoute } from '@react-navigation/native';
 
 import HOSChart from '../../Components/Compliance/HOSChart';
 
@@ -39,6 +39,7 @@ import Util, { REFERENCE_DATE } from '../../Utils/util';
 import ConfirmDutyStatusDialog from '../../Components/EditDutyStatusLog/ConfirmDutyStatusDialog';
 import { HosGraphLogEntry } from '../../core/api/types/hosLog';
 import { AllStatusData } from '../../core/shift_status';
+import NavigationService from '../../Services/Navigation';
 
 type RouteParams = {
     EditDutyStatusLog: EditDutyStatusNavigationParams;
@@ -370,7 +371,7 @@ const EditDutyStatusLogScreen: React.FC = () => {
                 Alert.alert('Success', result.message ?? 'Duty status updated successfully.', [
                     {
                         text: 'OK',
-                        onPress: () => navigation.goBack()
+                        onPress: () => navigation.dispatch(StackActions.popToTop()),
                     }
                 ]);
             } else if (result.message) {

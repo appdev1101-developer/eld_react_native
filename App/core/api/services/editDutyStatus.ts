@@ -19,7 +19,8 @@ export async function updateLogDutyStatus(
     editedFullLog: HosGraphLogEntry[],
     date: string,
     //form: EditDutyStatusFormValues
-): Promise<{ success: boolean; message?: string }> {
+    //recentLogsFromServer?: HosGraphLogEntry[]
+): Promise<{ success: boolean; message?: string;}> {
     if (!requireOnline()) {
         return { success: false };
     }
@@ -53,7 +54,8 @@ export async function updateLogDutyStatus(
         );
         return {
             success: isSuccess(result),
-            message: result.message
+            message: result.message,
+            //recentLogsFromServer: mapGraphEntry(result.data),
         };
         // return {
         //     success: true,
@@ -65,4 +67,8 @@ export async function updateLogDutyStatus(
             message: getApiErrorMessage(error, 'Failed to update duty status')
         };
     }
+}
+
+function mapGraphEntry(data: Record<string, unknown>): HosGraphLogEntry[] | undefined {
+    throw new Error('Function not implemented.');
 }

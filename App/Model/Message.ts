@@ -19,11 +19,15 @@ export type WsReceiveType =
 
 export type WsContact = {
     id: number;
-    first_name: string;
-    last_name: string;
+    first_name?: string;
+    last_name?: string;
     email?: string;
     image_url?: string;
+    group_id?: number,
+    group_name?: string,
+    isGroup: boolean,
     sendType: WsReceiveType;
+    
 };
 
 export type WsGroup = {
@@ -48,6 +52,18 @@ export type WsChatMessage = {
     sent_time: string;
     is_read?: number | string;
     group_id?: number;
+    group_name?: string;
+};
+
+export type ChatListItem = {
+    id: string;
+    receiverId: number,
+    name: string;
+    avatar: string;
+    isGroup: boolean;
+    lastMessage: string;
+    timestamp: string | number | Date | null;
+    unread: number;
 };
 
 export type WsTotalMsg = {
@@ -57,12 +73,13 @@ export type WsTotalMsg = {
     sender_id: number;
     receiver_id: number;
     sender_name?: string;
-    reciever_name?: string;
+    receiver_name?: string;
     content: string;
     image_url?: string;
     sent_time: string;
     is_read?: number | string;
     group_id?: number;
+    group_name?: string;
 };
 
 export type ChatThreadParams = {

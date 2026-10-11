@@ -25,6 +25,23 @@ export function email(value: string): ValidationResult {
     }
     return { valid: true };
 }
+export const validateMobileNumber = (phone: string | null | undefined): ValidationResult => {
+  if (!phone) return { valid: false, message: 'Mobile number is required.' };;
+
+  // 1. Remove all spaces, dashes, parentheses, and dots added by auto-formatting or user input
+  const cleanPhone = phone.replace(/[\s\-().]/g, '');
+
+  // 2. Regular Expression breakdown:
+  // ^(\+?\d{1,4})? -> Optional country code (e.g., +1, +91, 44) up to 4 digits
+  // \d{7,15}$      -> Matches the core subscriber number (7 to 15 digits according to E.164 standard)
+  const phoneRegex = /^(\+?\d{1,4})?\d{7,15}$/;
+
+   if(!phoneRegex.test(cleanPhone))
+   {
+        return { valid: false, message: 'Invalid mobile number.' };;
+   }
+   return { valid: true };
+};
 
 export function minLength(
     value: string,

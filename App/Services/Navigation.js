@@ -16,6 +16,7 @@ function navigate(routeName, params) {
 }
 
 function replace(routeName, params) {
+    
     _navigator.dispatch(
         StackActions.replace(routeName, params)
     )

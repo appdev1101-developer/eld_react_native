@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
     StyleSheet,
     Text,
@@ -6,7 +6,7 @@ import {
     View
 } from 'react-native';
 import 
-    Swipeable
+    Swipeable, { SwipeableMethods }
  from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import {Icon } from 'react-native-basic-elements';
@@ -22,16 +22,41 @@ interface Props {
     item: HosGraphLogEntry;
     timezone: string;
     onEdit: (item: HosGraphLogEntry) => void;
+    shouldBounce?: boolean;
 }
 
 const ActivityLogItem: React.FC<Props> = ({
     item,
     timezone,
-    onEdit
+    onEdit,
+    shouldBounce = false // Default to false so it doesn't bounce everything
 }) => {
+
+    // 1. Create a reference to the Swipeable component instance
+    const swipeableRef = useRef<SwipeableMethods>(null);
+
     const handleEdit = () => {
         onEdit(item);
     };
+
+    // 2. Trigger the one-time bounce hint on mount if shouldBounce is true
+    useEffect(() => {
+        if (shouldBounce && swipeableRef.current) {
+            // Slight delay so the user catches the animation after the screen layout renders
+            const openTimeout = setTimeout(() => {
+                swipeableRef.current?.openRight();
+                
+                // Keep it open for 500ms so the user can easily see the "Edit" text, then snap it shut
+                const closeTimeout = setTimeout(() => {
+                    swipeableRef.current?.close();
+                }, 600);
+
+                return () => clearTimeout(closeTimeout);
+            }, 600);
+
+            return () => clearTimeout(openTimeout);
+        }
+    }, [shouldBounce]);
 
     const renderRightActions = () => {
         return (
@@ -77,6 +102,7 @@ const ActivityLogItem: React.FC<Props> = ({
 
     return (
         <Swipeable
+            ref={swipeableRef}
             renderRightActions={renderRightActions}
             rightThreshold={moderateScale(40)}
             overshootRight={false}

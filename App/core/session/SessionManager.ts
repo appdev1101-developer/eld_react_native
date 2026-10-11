@@ -19,6 +19,7 @@ import {
     setLogSessionId,
     setToken
 } from './sessionStorage';
+import { clearAllChats } from '../../Redux/reducer/Messages';
 
 let isTearingDown = false;
 
@@ -30,6 +31,7 @@ async function teardownSession(): Promise<void> {
 
     try {
         Store.dispatch(clearDashboard());
+        Store.dispatch(clearAllChats());
         invalidateHomeCache();
         invalidateComplianceCache();
         invalidateMessagesCache();

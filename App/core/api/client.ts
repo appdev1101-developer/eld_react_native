@@ -9,8 +9,10 @@ import {
     ApiStatus,
     LegacyApiPayload
 } from './types/common';
+import { Asset } from 'react-native-image-picker';
 
 const BASE_URL = `${MAIN_BASE_URL}/mobileAPI/`;
+//const BASE_URL = `${MAIN_BASE_URL}`;
 const REQUEST_TIMEOUT_MS = 30000;
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -313,6 +315,34 @@ export async function apiUploadMultipart<T>(
         headers: { 
             Accept: 'application/json',
            'cache-control': 'no-cache',
+         }
+    });
+
+    return buildApiResponse(response.data ?? {}, response.status, mapData);
+}
+
+
+export async function apiUploadImageMultipart<T>(
+    method: 'POST' | 'PUT',
+    endpoint: string,
+    mapData: (payload: Record<string, unknown>) => T,
+    asset: Asset
+): Promise<ApiResponse<T>> {
+    const formData = new FormData();
+    formData.append('image', {
+        uri: asset.uri,
+        type: asset.type ?? 'image/jpeg',
+        name: asset.fileName ?? `image_${Date.now()}.jpg`,
+    } as any);
+
+    const response = await apiClient.request<Record<string, unknown>>({
+        url: endpoint,
+        method,
+        data: formData,
+        headers: { 
+            Accept: 'application/json',
+           'cache-control': 'no-cache',
+           'Content-Type': 'multipart/form-data',
          }
     });
 

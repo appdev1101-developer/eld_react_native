@@ -132,6 +132,7 @@ dependencies {
     // Add the Crashlytics and analytics SDK dependency
     implementation 'com.google.firebase:firebase-crashlytics'
     implementation 'com.google.firebase:firebase-analytics'
+    implementation 'androidx.activity:activity:1.9.+'
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

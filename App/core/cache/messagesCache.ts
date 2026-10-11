@@ -1,3 +1,5 @@
+import { WsContact } from "../../Model/Message";
+
 export type ChatPreviewItem = {
     id: string;
     receiverId: number;
@@ -8,19 +10,23 @@ export type ChatPreviewItem = {
     unread?: number;
     isGroup: boolean;
     sentTime?: string;
+    presence?: 'online' | 'away' | 'offline';
 };
 
 export type ContactPreview = {
-    id: string;
-    receiverId: number;
+    id: number;
     name: string;
     avatar: string;
     isGroup: boolean;
+    lastMessage: string;
 };
 
 export type MessagesCachedData = {
     recentChats: ChatPreviewItem[];
-    lastTalkedTo: ContactPreview[];
+    //lastTalkedTo: ContactPreview[];
+    driverList: WsContact[];
+    groupList: WsContact[];
+    contactsLoaded: boolean;
     fetchedAt: number;
 };
 
@@ -65,12 +71,13 @@ export function upsertChatPreview(preview: ChatPreviewItem): void {
     if (!cache) {
         cache = {
             recentChats: [preview],
-            lastTalkedTo: [],
+            driverList: [],
+            groupList:[],
+            contactsLoaded:false,
             fetchedAt: Date.now()
         };
         return;
     }
-
     const existingIndex = cache.recentChats.findIndex(
         (chat) => chat.id === preview.id
     );

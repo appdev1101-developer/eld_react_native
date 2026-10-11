@@ -3,17 +3,17 @@ import {
     FlatList,
     Image,
     Pressable,
-    ScrollView,
+    RefreshControl,
     StyleSheet,
     TextInput,
     View
 } from 'react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import LinearGradient from 'react-native-linear-gradient';
+import HomeHeader from '../../Components/Headers/HomeHeader';
 import { useRecentChats } from '../../core/hooks/useRecentChats';
 import { Container, Icon, Text } from 'react-native-basic-elements';
 import AppStatusBar from '../../Components/AppStatusBar';
-import LinearGradient from 'react-native-linear-gradient';
-import HomeHeader from '../../Components/Headers/HomeHeader';
 import { moderateScale } from '../../Constants/PixelRatio';
 import { FONTS } from '../../Constants/Fonts';
 import { getAvatarSource } from '../../Constants/MessageMockData';
@@ -24,7 +24,17 @@ import { RootState } from '../../Redux/store';
 import { useFocusEffect } from '@react-navigation/native';
 import messageWebSocket from '../../Utils/MessageWebSocket';
 import { ChatPreviewItem } from '../../core/cache/messagesCache';
-import { THEME, GRADIENT_HEADER } from '../../Constants/Theme';
+import { GRADIENT_HEADER, THEME } from '../../Constants/Theme';
+import Util from '../../Utils/util';
+import { ChatListItem } from '../../Model/Message';
+
+type ChatTab = 'all' | 'groups';
+
+const PRESENCE_COLORS: Record<string, string> = {
+    online: '#3DCB6C',
+    away: '#F5B93D'
+    // 'offline' / undefined -> no dot at all
+};
 
 const RecentChats = () => {
     const { userData } = useSelector((state: RootState) => state.User);
@@ -33,34 +43,114 @@ const RecentChats = () => {
     const masterId = userData?.master_id ?? senderId;
 
     const [search, setSearch] = useState('');
+    const [searchVisible, setSearchVisible] = useState(false);
+    const [activeTab, setActiveTab] = useState<ChatTab>('all');
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const {
         loading,
         recentChats,
-        lastTalkedTo,
         loadChats,
-        handleNewMessage
+        refresh,
+        handleNewMessage,
+        driverList,
+        groupList,
     } = useRecentChats({ senderId, masterId });
 
-    useFocusEffect(
-        useCallback(() => {
-            loadChats();
-        }, [loadChats])
-    );
+    // useFocusEffect(
+    //     useCallback(() => {
+    //         loadChats();
+    //     }, [loadChats])
+    // );
+
+    useEffect(() => {
+    loadChats();
+}, [loadChats]);
 
     useEffect(() => {
         const unsub = messageWebSocket.on('new_message', handleNewMessage);
         return unsub;
     }, [handleNewMessage]);
 
+    const handleRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await refresh();
+        setRefreshing(false);
+    }, [refresh]);
+
     const filteredChats = useMemo(
-        () =>
-            recentChats.filter(
-                (chat) =>
-                    chat.name.toLowerCase().includes(search.toLowerCase()) ||
-                    chat.lastMessage.toLowerCase().includes(search.toLowerCase())
-            ),
-        [recentChats, search]
+        () => 
+        {
+            const recentIds = new Set(
+                recentChats.map((chat) => String(chat.id))
+            );
+
+            const driversWithoutRecentChat = driverList
+            .filter(
+                (driver) =>
+                    !recentIds.has(String(driver.id))
+            )
+            .map((driver): ChatPreviewItem => ({
+                id: String(driver.id),
+                receiverId: driver.id,
+                name: driver?.first_name+" "+driver?.last_name,
+                avatar: driver?.image_url ?? '',
+                isGroup: false,
+
+                // Defaults for a driver without a conversation
+                lastMessage: '',
+                timestamp: '',
+                unread: 0,
+            }));
+
+            const groupsWithoutRecentChat = groupList
+            .filter(
+                (group) =>
+                    !recentIds.has(String(group.id))
+            )
+            .map((group): ChatPreviewItem => ({
+                id: String(group.id),
+                receiverId: group.id,
+                name: group?.group_name ?? 'Unknown',
+                avatar: group?.image_url ?? '',
+                isGroup: true,
+
+                // Defaults for a driver without a conversation
+                lastMessage: '',
+                timestamp: '',
+                unread: 0,
+            }));
+
+
+
+            const allChats = [
+                ...recentChats,
+                ...driversWithoutRecentChat,
+                ...groupsWithoutRecentChat,
+            ];
+
+            const searchText = search.toLowerCase();
+
+            return allChats
+            .filter((chat) =>
+                activeTab === 'groups'
+                    ? chat.isGroup
+                    : !chat.isGroup
+            )
+            .filter((chat) => {
+                const name =
+                    chat.name?.toLowerCase() ?? '';
+
+                const lastMessage =
+                    chat.lastMessage?.toLowerCase() ?? '';
+
+                return (
+                    name.includes(searchText) ||
+                    lastMessage.includes(searchText)
+                );
+            });
+
+        }, [recentChats, driverList,groupList, search, activeTab]
     );
 
     const openChat = (chat: ChatPreviewItem) => {
@@ -72,6 +162,15 @@ const RecentChats = () => {
         });
     };
 
+    const toggleSearch = () => {
+        setSearchVisible((visible) => {
+            if (visible) {
+                setSearch('');
+            }
+            return !visible;
+        });
+    };
+
     return (
         <Container>
             <AppStatusBar />
@@ -79,17 +178,33 @@ const RecentChats = () => {
                 colors={GRADIENT_HEADER}
                 style={{ flex: 1 }}
             >
-                <HomeHeader />
+            <HomeHeader />
+            <View style={styles.screen}>
+                <View style={styles.headerRow}>
+                    <Text style={styles.headerTitle}>Recent Chats</Text>
+                    <Pressable
+                        onPress={toggleSearch}
+                        hitSlop={moderateScale(10)}
+                    >
+                        <Icon
+                            name={searchVisible ? 'x' : 'search'}
+                            type="Feather"
+                            size={moderateScale(22)}
+                            color={THEME.colors.textPrimary}
+                        />
+                    </Pressable>
+                </View>
 
-                <View style={styles.searchRow}>
+                {searchVisible ? (
                     <View style={styles.searchBox}>
                         <Icon
                             name="search"
                             type="Feather"
-                            size={moderateScale(16)}
+                            size={moderateScale(15)}
                             color={THEME.colors.textMuted}
                         />
                         <TextInput
+                            autoFocus
                             placeholder="Search chats..."
                             placeholderTextColor={THEME.colors.textMuted}
                             value={search}
@@ -97,131 +212,136 @@ const RecentChats = () => {
                             style={styles.searchInput}
                         />
                     </View>
+                ) : null}
+
+                <View style={styles.tabsRow}>
+                    <Pressable
+                        style={[styles.tabChip, activeTab === 'all' && styles.tabChipActive]}
+                        onPress={() => setActiveTab('all')}
+                    >
+                        <Text
+                            style={{
+                                ...styles.tabChipText,
+                                ...(activeTab === 'all' && styles.tabChipTextActive)
+                            }}
+                        >
+                            All chats
+                        </Text>
+                    </Pressable>
+                    <Pressable
+                        style={{
+                            ...styles.tabChip,
+                            ...(activeTab === 'groups' && styles.tabChipActive)
+                        }}
+                        onPress={() => setActiveTab('groups')}
+                    >
+                        <Text
+                            style={{
+                                ...styles.tabChipText,
+                                ...(activeTab === 'groups' && styles.tabChipTextActive)
+                            }}
+                        >
+                            Groups
+                        </Text>
+                    </Pressable>
                 </View>
 
-                <View style={styles.bodyCard}>
-                    <View style={styles.sectionHeader}>
-                        <Image
-                            source={require('../../Assets/Icons/talking.png')}
-                            style={styles.sectionIcon}
+                {loading ? (
+                    <View style={styles.loadingWrap}>
+                        <ActivityIndicator
+                            size="large"
+                            color={THEME.colors.primaryLight}
                         />
-                        <Text style={styles.sectionTitle}>Last Talked To</Text>
                     </View>
-
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.lastTalkedList}
-                    >
-                        {lastTalkedTo.map((contact) => (
-                            <Pressable
-                                key={contact.id}
-                                style={styles.lastTalkedItem}
-                                onPress={() =>
-                                    openChat({
-                                        id: `chat-${contact.receiverId}`,
-                                        receiverId: contact.receiverId,
-                                        name: contact.name,
-                                        avatar: contact.avatar,
-                                        lastMessage: '',
-                                        timestamp: '',
-                                        isGroup: false
-                                    })
-                                }
-                            >
-                                <Image
-                                    source={getAvatarSource(contact.avatar)}
-                                    style={styles.lastTalkedAvatar}
-                                />
-                                <Text
-                                    style={styles.lastTalkedName}
-                                    numberOfLines={1}
-                                >
-                                    {contact.name}
-                                </Text>
-                            </Pressable>
-                        ))}
-                    </ScrollView>
-
-                    <Text style={styles.recentTitle}>Recent Chats</Text>
-
-                    {loading ? (
-                        <View style={styles.loadingWrap}>
-                            <ActivityIndicator
-                                size="large"
-                                color={THEME.colors.primaryLight}
+                ) : (
+                    <FlatList
+                        data={filteredChats}
+                        keyExtractor={(item) => item.id}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.listContent}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={handleRefresh}
+                                colors={[THEME.colors.primary]}
+                                tintColor={THEME.colors.primary}
                             />
-                        </View>
-                    ) : (
-                        <FlatList
-                            data={filteredChats}
-                            keyExtractor={(item) => item.id}
-                            showsVerticalScrollIndicator={false}
-                            contentContainerStyle={{ paddingBottom: moderateScale(90) }}
-                            ListEmptyComponent={
-                                <View style={styles.emptyWrap}>
-                                    <Text style={styles.emptyText}>
-                                        No conversations yet
-                                    </Text>
-                                </View>
-                            }
-                            renderItem={({ item }) => (
+                        }
+                        ListEmptyComponent={
+                            <View style={styles.emptyWrap}>
+                                <Text style={styles.emptyText}>
+                                    No conversations yet
+                                </Text>
+                            </View>
+                        }
+                        renderItem={({ item }) => {
+                            // const presenceColor = item.presence
+                            //     ? PRESENCE_COLORS[item.presence]
+                            //     : undefined;
+                            return (
                                 <Pressable
                                     style={styles.chatItem}
                                     onPress={() => openChat(item)}
                                 >
-                                    <Image
-                                        source={getAvatarSource(item.avatar)}
-                                        style={styles.chatAvatar}
-                                    />
+                                    <View style={styles.avatarWrap}>
+                                        <Image
+                                            source={getAvatarSource(item.avatar)}
+                                            style={styles.chatAvatar}
+                                        />
+                                        {/* {presenceColor ? (
+                                            <View
+                                                style={[
+                                                    styles.presenceDot,
+                                                    { backgroundColor: presenceColor }
+                                                ]}
+                                            />
+                                        ) : null} */}
+                                    </View>
+
                                     <View style={styles.chatContent}>
-                                        <View style={styles.chatTopRow}>
-                                            <Text
-                                                style={styles.chatName}
-                                                numberOfLines={1}
-                                            >
-                                                {item.name}
-                                            </Text>
-                                            <Text style={styles.chatTime}>
-                                                {item.timestamp}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.chatBottomRow}>
-                                            <Text
-                                                style={styles.chatMessage}
-                                                numberOfLines={1}
-                                            >
-                                                {item.lastMessage}
-                                            </Text>
-                                            {item.unread ? (
-                                                <View style={styles.unreadBadge}>
-                                                    <Text style={styles.unreadText}>
-                                                        {item.unread}
-                                                    </Text>
-                                                </View>
-                                            ) : null}
-                                        </View>
+                                        <Text
+                                            style={styles.chatName}
+                                            numberOfLines={1}
+                                        >
+                                            {item.name}
+                                        </Text>
+                                        <Text
+                                            style={styles.chatMessage}
+                                            numberOfLines={1}
+                                        >
+                                            {item.lastMessage || ''}
+                                        </Text>
+                                    </View>
+
+                                    <View style={styles.chatMeta}>
+                                        {item.timestamp ? (
+                                            <Text style={styles.chatTime}>{Util.getSectionItemTime(item.timestamp)}</Text>
+                                            ):null}
+                                        {item.unread ? (
+                                            <View style={styles.unreadBadge}>
+                                                <Text style={styles.unreadText}>
+                                                    {item.unread}
+                                                </Text>
+                                            </View>
+                                        ) : null}
                                     </View>
                                 </Pressable>
-                            )}
-                            ItemSeparatorComponent={() => (
-                                <View style={styles.separator} />
-                            )}
-                        />
-                    )}
+                            );
+                        }}
+                    />
+                )}
 
-                    <Pressable
-                        style={styles.fab}
-                        onPress={() => setShowCreateModal(true)}
-                    >
-                        <Icon
-                            name="plus"
-                            type="Feather"
-                            size={moderateScale(24)}
-                            color={THEME.colors.textOnDark}
-                        />
-                    </Pressable>
-                </View>
+                <Pressable
+                    style={styles.fab}
+                    onPress={() => setShowCreateModal(true)}
+                >
+                    <Icon
+                        name="message-circle"
+                        type="Feather"
+                        size={moderateScale(24)}
+                        color={THEME.colors.textOnDark}
+                    />
+                </Pressable>
 
                 <Modal
                     isVisible={showCreateModal}
@@ -271,6 +391,7 @@ const RecentChats = () => {
                         </Pressable>
                     </View>
                 </Modal>
+            </View>
             </LinearGradient>
         </Container>
     );
@@ -279,38 +400,66 @@ const RecentChats = () => {
 export default RecentChats;
 
 const styles = StyleSheet.create({
-    searchRow: {
+    screen: {
+        flex: 1,
+        backgroundColor: THEME.colors.surface,
+        borderTopRightRadius: THEME.radius.sheet,
+        borderTopLeftRadius: THEME.radius.sheet
+    },
+    headerRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginHorizontal: moderateScale(18),
-        marginBottom: moderateScale(12),
-        gap: moderateScale(10)
+        justifyContent: 'space-between',
+        paddingHorizontal: moderateScale(20),
+        paddingTop: moderateScale(22),
+        paddingBottom: moderateScale(16)
+    },
+    headerTitle: {
+        color: THEME.colors.textPrimary,
+        fontFamily: FONTS.ProductSans.bold,
+        fontSize: moderateScale(22)
     },
     searchBox: {
-        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: THEME.colors.surfaceElevated,
         borderRadius: THEME.radius.sm,
+        marginHorizontal: moderateScale(20),
+        marginBottom: moderateScale(12),
         paddingHorizontal: moderateScale(14),
         height: moderateScale(42),
-        gap: moderateScale(8),
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.15)'
+        gap: moderateScale(8)
     },
     searchInput: {
         flex: 1,
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(14),
-        color: THEME.colors.textOnDark,
+        color: THEME.colors.textPrimary,
         padding: 0
     },
-    bodyCard: {
-        backgroundColor: THEME.colors.surface,
-        paddingTop: moderateScale(24),
-        flex: 1,
-        borderTopRightRadius: THEME.radius.sheet,
-        borderTopLeftRadius: THEME.radius.sheet
+    tabsRow: {
+        flexDirection: 'row',
+        gap: moderateScale(10),
+        paddingHorizontal: moderateScale(20),
+        marginBottom: moderateScale(18)
+    },
+    tabChip: {
+        paddingHorizontal: moderateScale(18),
+        paddingVertical: moderateScale(9),
+        borderRadius: moderateScale(18),
+        backgroundColor: THEME.colors.surfaceElevated
+    },
+    tabChipActive: {
+        backgroundColor: THEME.colors.primary
+    },
+    tabChipText: {
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(14),
+        color: THEME.colors.textMuted
+    },
+    tabChipTextActive: {
+        color: THEME.colors.textOnDark,
+        fontFamily: FONTS.ProductSans.bold
     },
     loadingWrap: {
         flex: 1,
@@ -326,98 +475,59 @@ const styles = StyleSheet.create({
         fontSize: moderateScale(14),
         color: THEME.colors.textMuted
     },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginHorizontal: moderateScale(20),
-        gap: moderateScale(10)
-    },
-    sectionIcon: {
-        height: moderateScale(22),
-        width: moderateScale(22),
-        resizeMode: 'contain'
-    },
-    sectionTitle: {
-        color: THEME.colors.primary,
-        fontFamily: FONTS.ProductSans.bold,
-        fontSize: moderateScale(17),
-        letterSpacing: 0.2
-    },
-    lastTalkedList: {
-        paddingHorizontal: moderateScale(15),
-        paddingVertical: moderateScale(15),
-        gap: moderateScale(12)
-    },
-    lastTalkedItem: {
-        alignItems: 'center',
-        width: moderateScale(64)
-    },
-    lastTalkedAvatar: {
-        height: moderateScale(52),
-        width: moderateScale(52),
-        borderRadius: moderateScale(26),
-        borderWidth: 2,
-        borderColor: THEME.colors.primaryLight
-    },
-    lastTalkedName: {
-        marginTop: moderateScale(6),
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(11),
-        color: THEME.colors.textPrimary,
-        textAlign: 'center'
-    },
-    recentTitle: {
-        marginHorizontal: moderateScale(20),
-        marginBottom: moderateScale(12),
-        fontFamily: FONTS.ProductSans.bold,
-        fontSize: moderateScale(16),
-        color: THEME.colors.textPrimary,
-        letterSpacing: 0.2
+    listContent: {
+        paddingHorizontal: moderateScale(20),
+        paddingBottom: moderateScale(100)
     },
     chatItem: {
         flexDirection: 'row',
-        paddingHorizontal: moderateScale(20),
-        paddingVertical: moderateScale(12),
-        alignItems: 'center'
+        alignItems: 'center',
+        paddingVertical: moderateScale(14)
+    },
+    avatarWrap: {
+        position: 'relative'
     },
     chatAvatar: {
-        height: moderateScale(48),
-        width: moderateScale(48),
-        borderRadius: moderateScale(24)
+        height: moderateScale(52),
+        width: moderateScale(52),
+        borderRadius: moderateScale(26)
+    },
+    presenceDot: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        width: moderateScale(13),
+        height: moderateScale(13),
+        borderRadius: moderateScale(7),
+        borderWidth: 2,
+        borderColor: THEME.colors.surface
     },
     chatContent: {
         flex: 1,
-        marginLeft: moderateScale(12)
-    },
-    chatTopRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center'
+        marginLeft: moderateScale(14)
     },
     chatName: {
-        flex: 1,
         fontFamily: FONTS.ProductSans.bold,
-        fontSize: moderateScale(15),
-        color: THEME.colors.textPrimary,
-        marginRight: moderateScale(8)
+        fontSize: moderateScale(16),
+        color: THEME.colors.textPrimary
+    },
+    chatMessage: {
+        marginTop: moderateScale(3),
+        fontFamily: FONTS.ProductSans.regular,
+        fontSize: moderateScale(13),
+        color: THEME.colors.textMuted
+    },
+    chatMeta: {
+        alignItems: 'flex-end',
+        marginLeft: moderateScale(8)
     },
     chatTime: {
         fontFamily: FONTS.ProductSans.regular,
         fontSize: moderateScale(12),
         color: THEME.colors.textMuted
     },
-    chatBottomRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: moderateScale(4)
-    },
-    chatMessage: {
-        flex: 1,
-        fontFamily: FONTS.ProductSans.regular,
-        fontSize: moderateScale(13),
-        color: THEME.colors.textSecondary
-    },
     unreadBadge: {
+        marginTop: moderateScale(6),
         backgroundColor: THEME.colors.primary,
         borderRadius: moderateScale(10),
         minWidth: moderateScale(20),
@@ -430,11 +540,6 @@ const styles = StyleSheet.create({
         fontFamily: FONTS.ProductSans.bold,
         fontSize: moderateScale(11),
         color: THEME.colors.textOnDark
-    },
-    separator: {
-        height: 1,
-        backgroundColor: THEME.colors.borderLight,
-        marginHorizontal: moderateScale(20)
     },
     fab: {
         position: 'absolute',

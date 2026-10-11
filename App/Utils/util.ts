@@ -1,5 +1,6 @@
 import moment from "moment";
 import { EditActivityFormValues, EditActivityPayload } from "../core/api/types/singleActivity";
+import {Asset, ImagePickerResponse, launchImageLibrary} from 'react-native-image-picker';
 
 export const REFERENCE_DATE = '2000-01-01';
 
@@ -133,7 +134,71 @@ function parseSignatureData(
     };
 }
 
+// Define this outside your component or in a utils file
+const getSectionTitle = (sentTimeStr: string): string => {
+  const todayStr = new Date().toDateString();
+  
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toDateString();
+
+  const dateObj = new Date(sentTimeStr);
+  const messageDateStr = dateObj.toDateString();
+
+  if (messageDateStr === todayStr) return 'Today';
+  if (messageDateStr === yesterdayStr) return 'Yesterday';
+  
+  return dateObj.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
 ////////
+
+
+// Define this outside your component or in a utils file
+const getSectionItemTime = (sentTimeStr: string): string => {
+  
+  const dateObj = new Date(sentTimeStr);
+
+  return dateObj.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+// Select image from gallery
+const selectImageFromStorage = async () : Promise<Asset | null> => {
+    const result: ImagePickerResponse = await launchImageLibrary({
+        mediaType: 'photo',
+        selectionLimit: 1,
+    });
+
+    if (result.didCancel) {
+        return null;
+    }
+
+    if (result.errorCode) {
+        console.log('Image picker error:', result.errorMessage);
+        return null;
+    }
+
+    const asset = result.assets?.[0];
+
+    if (!asset?.uri) {
+        return null;
+    }
+
+    console.log('Image URI:', asset.uri);
+    console.log('File name:', asset.fileName);
+    console.log('Type:', asset.type);
+
+    return asset;
+    
+};
 
 const Util= {
     convertToDayFormat,
@@ -146,7 +211,10 @@ const Util= {
     convertDateToTimeStrFormat,
     getSecondsFromMidnight,
     convertSecondsToTimeString,
-    convertToLogDateFormat
+    convertToLogDateFormat,
+    getSectionTitle,
+    getSectionItemTime,
+    selectImageFromStorage,
 }
 
 export default Util;
