@@ -17,14 +17,18 @@
 export const ELD_EVENTS = {
     /** Live OBD/GeoData measurement — fires frequently while connected. */
     DATA: 'GeometrisData',
-    /**
-     * Fires only on a genuine connect/disconnect transition (see
-     * notifyConnectionState() in GeoDataForegroundService.kt) — never on
-     * every data packet.
-     */
-    CONNECTION_CHANGED: 'BluetoothConnectionChanged'
+    // New detailed native connection state.
+    CONNECTION_STATUS: 'ELD_CONNECTION_STATE_CHANGED',
 } as const;
 
-export type EldConnectionChangedPayload = {
-    connected: boolean;
-};
+export type EldConnectionStatus =
+  | 'connected'
+  | 'connecting'
+  | 'reconnecting'
+  | 'disconnected'
+  | 'stale';
+
+export interface EldConnectionStatusPayload {
+  status: EldConnectionStatus;
+  connected: boolean;
+}  

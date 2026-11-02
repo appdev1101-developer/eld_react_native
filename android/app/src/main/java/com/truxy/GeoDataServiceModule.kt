@@ -19,53 +19,55 @@ import com.facebook.react.modules.core.DeviceEventManagerModule
 import org.json.JSONObject
 
 /**
- * React Native bridge that lets JS start/stop the background GeoData foreground service
- * and query how many records are currently queued waiting to be uploaded.
- *
- * Also forwards live GeoData events to JS via the "GeometrisData" DeviceEventEmitter
- * so the UI updates in real time while the app is in the foreground.
+ * React Native bridge that starts/stops the GeoData foreground service,
+ * exposes the pending upload count, and forwards ELD data/connection events.
  */
 class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
 
     init {
-        // Event name strings here must match App/core/ble/bleEvents.ts
-        // (ELD_EVENTS) exactly — that file is the single source of truth
-        // on the JS side; Kotlin can't import it directly, so if either
-        // string below ever changes, update bleEvents.ts too.
-
-        // Forward native service data events to the RN JS thread
+        // Event names must match the constants used by the React Native app.
+        // Forward live GeoData events to JS.
         GeoDataForegroundService.onGeoData = { jsonString ->
+            FileLogger.append(reactContext, "GeoDataForegroundService onGeoData() ")
             if (reactContext.hasActiveReactInstance()) {
                 try {
                     reactContext
                         .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                         .emit("GeometrisData", jsonToWritableMap(JSONObject(jsonString)))
-                } catch (_: Exception) {}
+                    FileLogger.append(reactContext, "GeoDataForegroundService onGeoData() emitted")
+                } catch (_: Exception) {
+                    // Do not allow a JS bridge error to interrupt the native service.
+                }
             }
         }
 
-        // Forward real connect/disconnect transitions — this is the actual
-        // signal HomeHeader.tsx's red/green dot should be driven by,
-        // instead of inferring connection state from data recency alone.
-        GeoDataForegroundService.onConnectionStateChanged = { connected ->
+        // New detailed status event: connected, connecting, reconnecting,
+        // disconnected, or stale. Keep this separate from the legacy event above.
+        GeoDataForegroundService.onConnectionStatusChanged = { status ->
             if (reactContext.hasActiveReactInstance()) {
                 try {
                     val map = Arguments.createMap()
-                    map.putBoolean("connected", connected)
+                    map.putString("status", status)
+                    map.putBoolean("connected", status == "connected")
                     reactContext
                         .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-                        .emit("BluetoothConnectionChanged", map)
-                } catch (_: Exception) {}
+                        .emit("ELD_CONNECTION_STATE_CHANGED", map)
+                } catch (_: Exception) {
+                    // Keep native connection handling independent of JS listener errors.
+                }
             }
         }
     }
 
     override fun getName() = "GeoDataService"
 
-    // Required stubs so RN does not warn about missing addListener / removeListeners
-    @ReactMethod fun addListener(eventName: String) {}
-    @ReactMethod fun removeListeners(count: Int) {}
+    // Required stubs so React Native does not warn about missing listener methods.
+    @ReactMethod
+    fun addListener(eventName: String) {}
+
+    @ReactMethod
+    fun removeListeners(count: Int) {}
 
     private fun jsonToWritableMap(json: JSONObject): WritableMap {
         val map = Arguments.createMap()
@@ -74,29 +76,27 @@ class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
             val key = keys.next()
             when (val v = json.get(key)) {
                 is Boolean -> map.putBoolean(key, v)
-                is Int     -> map.putInt(key, v)
-                is Long    -> map.putDouble(key, v.toDouble())
-                is Double  -> map.putDouble(key, v)
-                is String  -> map.putString(key, v)
-                else       -> map.putString(key, v.toString())
+                is Int -> map.putInt(key, v)
+                is Long -> map.putDouble(key, v.toDouble())
+                is Double -> map.putDouble(key, v)
+                is String -> map.putString(key, v)
+                else -> map.putString(key, v.toString())
             }
         }
         return map
     }
 
-    /**
-     * Start the foreground service.
-     * Credentials are also saved to SharedPreferences here so that
-     * BootReceiver and START_STICKY restarts can recover without a JS context.
-     */
+    /** Start the foreground service and save credentials for native restarts. */
     @ReactMethod
     fun startService(apiUrl: String, token: String, deviceAddress: String, promise: Promise) {
         try {
-            reactContext.getSharedPreferences(GeoDataPrefs.PREFS_NAME, android.content.Context.MODE_PRIVATE)
-                .edit()
-                .putString(GeoDataPrefs.KEY_DEVICE,  deviceAddress)
+            reactContext.getSharedPreferences(
+                GeoDataPrefs.PREFS_NAME,
+                android.content.Context.MODE_PRIVATE
+            ).edit()
+                .putString(GeoDataPrefs.KEY_DEVICE, deviceAddress)
                 .putString(GeoDataPrefs.KEY_API_URL, apiUrl)
-                .putString(GeoDataPrefs.KEY_TOKEN,   token)
+                .putString(GeoDataPrefs.KEY_TOKEN, token)
                 .apply()
 
             val intent = Intent(reactContext, GeoDataForegroundService::class.java).apply {
@@ -112,7 +112,7 @@ class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
             }
             promise.resolve(true)
         } catch (e: Exception) {
-            promise.reject("SERVICE_START_ERROR", e.message)
+            promise.reject("SERVICE_START_ERROR", e.message, e)
         }
     }
 
@@ -126,18 +126,18 @@ class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
             reactContext.startService(intent)
             promise.resolve(true)
         } catch (e: Exception) {
-            promise.reject("SERVICE_STOP_ERROR", e.message)
+            promise.reject("SERVICE_STOP_ERROR", e.message, e)
         }
     }
 
-    /** Returns how many GeoData records are currently queued (not yet uploaded). */
+    /** Returns how many GeoData records are currently queued for upload. */
     @ReactMethod
     fun getPendingCount(promise: Promise) {
         try {
             val count = GeoDataDatabase(reactContext).count()
             promise.resolve(count)
         } catch (e: Exception) {
-            promise.reject("DB_ERROR", e.message)
+            promise.reject("DB_ERROR", e.message, e)
         }
     }
 
@@ -150,35 +150,23 @@ class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
             Handler(Looper.getMainLooper()).postDelayed({ toneGen.release() }, 250)
             promise.resolve(true)
         } catch (e: Exception) {
-            promise.reject("BEEP_ERROR", e.message)
+            promise.reject("BEEP_ERROR", e.message, e)
         }
     }
 
-    /**
-     * Whether the app is currently exempt from battery optimization. On
-     * plenty of OEM Android skins (Xiaomi/MIUI, Samsung, Oppo, Vivo, etc.),
-     * a correctly-declared foreground service with START_STICKY can still
-     * be killed in the background unless the app is explicitly whitelisted
-     * from the system's battery optimizer — this is a separate mechanism
-     * from the foreground-service APIs themselves, and neither Android's
-     * manifest permissions nor START_STICKY have any effect on it.
-     */
+    /** Checks whether the app is exempt from Android battery optimization. */
     @ReactMethod
     fun isIgnoringBatteryOptimizations(promise: Promise) {
         try {
-            val powerManager = reactContext.getSystemService(android.content.Context.POWER_SERVICE) as PowerManager
+            val powerManager =
+                reactContext.getSystemService(android.content.Context.POWER_SERVICE) as PowerManager
             promise.resolve(powerManager.isIgnoringBatteryOptimizations(reactContext.packageName))
         } catch (e: Exception) {
-            promise.reject("BATTERY_OPT_CHECK_ERROR", e.message)
+            promise.reject("BATTERY_OPT_CHECK_ERROR", e.message, e)
         }
     }
 
-    /**
-     * Opens the system dialog asking the user to exempt this app from
-     * battery optimization. This is a user-facing system prompt, not
-     * something that can be silently auto-granted — the driver has to
-     * explicitly approve it, same as any other Android permission dialog.
-     */
+    /** Opens the system prompt requesting battery-optimization exemption. */
     @ReactMethod
     fun requestIgnoreBatteryOptimizations() {
         try {
@@ -187,10 +175,8 @@ class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             reactContext.startActivity(intent)
-        } catch (e: Exception) {
-            // Some OEM skins (notably older MIUI builds) don't implement
-            // this action at all — fall back to the general app settings
-            // screen rather than crashing.
+        } catch (_: Exception) {
+            // Fall back to app settings on devices that do not implement the prompt.
             try {
                 val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                     data = Uri.parse("package:${reactContext.packageName}")

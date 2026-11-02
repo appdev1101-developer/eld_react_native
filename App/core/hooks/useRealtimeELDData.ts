@@ -43,9 +43,9 @@ export function useRealtimeELDData() {
         const listener = DeviceEventEmitter.addListener(
             ELD_EVENTS.DATA,
             (payload: EldDataPayload) => {
-                if (typeof payload?.speed !== 'number' || Number.isNaN(payload.speed)) {
-                    return;
-                }
+                // if (typeof payload?.speed !== 'number' || Number.isNaN(payload.speed)) {
+                //     return;
+                // }
                 //setSpeed(payload.speed < IDLE_SPEED_THRESHOLD ? 0 : payload.speed);
                 setSpeed(payload.speed ?? 0);
                 setSpeedTimeStamp(payload.speedTimestamp ?? '');

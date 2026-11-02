@@ -34,10 +34,17 @@ const HomeHeader: React.FC<Props> = ({
     const menuVisible = showMenu ?? !shouldShowBack;
     const colors = useTheme();
     const insets = useSafeAreaInsets();
-    const { isConnected: isBluetoothConnected} = useEldConnection();
+    const { isConnected , status } = useEldConnection();
+    const connectionColor = {
+    connected: THEME.colors.success,
+    connecting: THEME.colors.warning,
+    reconnecting: THEME.colors.warning,
+    disconnected: THEME.colors.error,
+    stale: THEME.colors.error,
+    }[status];
 
     const iconColor = theme === 'dark' ? THEME.colors.textOnDark : colors.buttonColor;
-    logger.log("<<<<<<< Bluetooth current status is >>>>> "+isBluetoothConnected);
+    logger.log("<<<<<<< Bluetooth current status is >>>>> "+isConnected);
     return (
         <View style={[styles.headerContainer, { marginTop: insets.top }]}>
             <View style={[styles.sideSlot, shouldShowBack && styles.sideSlotWithBack]}>
@@ -59,9 +66,7 @@ const HomeHeader: React.FC<Props> = ({
                     style={[
                         styles.bluetoothDot,
                         {
-                            backgroundColor: isBluetoothConnected
-                                ? THEME.colors.success
-                                : THEME.colors.error,
+                            backgroundColor: connectionColor,
                             borderColor:
                                 theme === 'dark'
                                     ? 'rgba(255, 255, 255, 0.4)'
@@ -69,9 +74,7 @@ const HomeHeader: React.FC<Props> = ({
                         }
                     ]}
                     accessibilityLabel={
-                        isBluetoothConnected
-                            ? 'Bluetooth device connected'
-                            : 'Bluetooth device disconnected — attempting to reconnect'
+                        status
                     }
                 />
             </View>

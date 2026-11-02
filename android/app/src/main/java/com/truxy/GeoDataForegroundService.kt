@@ -34,12 +34,22 @@ import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.round
+import android.content.pm.ServiceInfo
 
 /**
  * A foreground service that maintains the Geometris/ELD connection in the background,
  * uploads GeoData readings to the server, and queues failed uploads in SQLite so they
  * are retried automatically when connectivity is restored.
  */
+/** State exposed to React Native for the ELD connection indicator. */
+enum class ELDConnectionStatus {
+    CONNECTED,
+    CONNECTING,
+    RECONNECTING,
+    DISCONNECTED,
+    STALE
+}
+
 class GeoDataForegroundService : Service() {
 
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -56,28 +66,27 @@ class GeoDataForegroundService : Service() {
     // Crashlytics — shared instance/helpers, kept consistent with GeometrisModule
     private val crashlytics get() = CrashlyticsHelper.crashlytics
 
-    // Reconnect state
+    // Reconnect state. Retries continue while the driver session is active.
     private var reconnectAttempts = 0
-    private val maxReconnectAttempts = 5
-    private val reconnectDelayMs = 10_000L   // 10 s between attempts
+    private val reconnectBaseDelayMs = 2_000L
+    private val reconnectMaxDelayMs = 30_000L
     private var reconnectRunnable: Runnable? = null
+    @Volatile private var reconnectScheduled = false
+    @Volatile private var sessionActive = false
+    @Volatile private var isShuttingDown = false
+    @Volatile private var isConnecting = false
 
-    // Connection-state tracking — separate from reconnectAttempts, this is
-    // specifically "what should JS currently show for the red/green dot",
-    // updated only on genuine transitions so onRecv() firing many times a
-    // second doesn't spam the JS bridge with redundant events.
+    // Connection state exposed to React Native. Keep the old Boolean callback
+    // for backward compatibility while adding a richer status callback.
     private var lastKnownConnected: Boolean? = null
-    private var lastDataReceivedAt: Long = 0L
-    
-    // Watchdog: ACTION_ACL_DISCONNECTED only fires for an actual radio-level
-    // Bluetooth disconnect. It does NOT fire if the link stays up but the
-    // OBD device silently stops sending measurements (a protocol-level
-    // stall, not a radio-level one) — nothing previously detected that
-    // case at all. This periodically checks how long it's been since the
-    // last onRecv() and treats a long silence as a disconnect worth acting
-    // on, not just something the UI happens to notice.
+    private var lastKnownStatus: ELDConnectionStatus? = null
+    @Volatile private var lastDataReceivedAt: Long = 0L
+    @Volatile private var isDataStale = true
+
+    // If no valid OBD measurement arrives within this window, show STALE.
+    // Tune this to the expected cadence of your Geometris ELD device.
     private val dataStallThresholdMs = 45_000L
-    private val watchdogIntervalMs = 20_000L
+    private val watchdogIntervalMs = 10_000L
     private var watchdogRunnable: Runnable? = null
 
     // Modern network callback (API 21+)
@@ -87,38 +96,67 @@ class GeoDataForegroundService : Service() {
         }
     }
     
-    // Bluetooth ACL state receiver
+    // Bluetooth and adapter state receiver. ACL events indicate radio-level
+    // connectivity only; a valid GeoData measurement confirms a working ELD feed.
     private val bluetoothReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            val action = intent?.action ?: return
+
+            if (action == BluetoothAdapter.ACTION_STATE_CHANGED) {
+                when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
+                    BluetoothAdapter.STATE_TURNING_OFF,
+                    BluetoothAdapter.STATE_OFF -> {
+                        Log.w(TAG, "Bluetooth is off")
+                        notifyConnectionStatus(ELDConnectionStatus.DISCONNECTED)
+                        updateNotification("Bluetooth off – waiting")
+                        // Keep the session and saved preferences; retry when Bluetooth returns.
+                        cancelReconnect()
+                    }
+                    BluetoothAdapter.STATE_ON -> {
+                        if (sessionActive && savedDeviceAddress.isNotBlank()) {
+                            Log.i(TAG, "Bluetooth enabled; scheduling ELD reconnect")
+                            scheduleReconnect()
+                        }
+                    }
+                }
+                return
+            }
+
+            if (action != BluetoothDevice.ACTION_ACL_CONNECTED &&
+                action != BluetoothDevice.ACTION_ACL_DISCONNECTED) return
+
             val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                intent?.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+                intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
             } else {
                 @Suppress("DEPRECATION")
-                intent?.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
             }
-            // Only react to events for our connected device
             if (device?.address != savedDeviceAddress) return
 
-            when (intent?.action) {
+            when (action) {
                 BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
                     Log.w(TAG, "BT device disconnected – scheduling reconnect")
                     crashlytics.log("BT device disconnected: $savedDeviceAddress")
                     FileLogger.append(this@GeoDataForegroundService, "BT device disconnected: $savedDeviceAddress")
-                    notifyConnectionState(false)
+                    isDataStale = true
+                    notifyConnectionStatus(ELDConnectionStatus.DISCONNECTED)
                     updateNotification("ELD disconnected – reconnecting...")
                     scheduleReconnect()
                 }
                 BluetoothDevice.ACTION_ACL_CONNECTED -> {
-                    Log.d(TAG, "BT device reconnected")
-                    crashlytics.log("BT device reconnected: $savedDeviceAddress")
-                    FileLogger.append(this@GeoDataForegroundService, "BT device reconnected: $savedDeviceAddress")
-                    notifyConnectionState(true)
-                    lastDataReceivedAt = System.currentTimeMillis()
+                    Log.d(TAG, "BT link connected; re-establishing for ELD measurements")
+                    crashlytics.log("BT link connected: $savedDeviceAddress")
+                    FileLogger.append(this@GeoDataForegroundService, "BT link connected: $savedDeviceAddress")
+                    notifyConnectionStatus(ELDConnectionStatus.CONNECTING)
                     cancelReconnect()
-                    reconnectAttempts = 0
-                    // Re-register the OBD handler so data keeps flowing
-                    executor.execute { startOBDSession(savedDeviceAddress, reconnecting = true) }
-                    updateNotification("ELD data collection active")
+                    // Re-register the SDK request handler on the serialized executor.
+                    // Do not report CONNECTED until a valid GeoData measurement arrives.
+                    executor.execute {
+                        if (!sessionActive || isShuttingDown) return@execute
+                        try { WherequbeService.getInstance().disconnect() } catch (_: Exception) {}
+                        startOBDSession(savedDeviceAddress, reconnecting = false)
+                    }
+                    updateNotification("Bluetooth linked – establishing ELD session")
                 }
             }
         }
@@ -141,12 +179,8 @@ class GeoDataForegroundService : Service() {
          */
         var onGeoData: ((String) -> Unit)? = null
 
-        /**
-         * Registered by GeoDataServiceModule, mirroring onGeoData exactly —
-         * fires only on genuine connect/disconnect transitions (see
-         * notifyConnectionState below), not on every data packet.
-         */
-        var onConnectionStateChanged: ((Boolean) -> Unit)? = null
+        /** Emits connected/connecting/reconnecting/disconnected/stale to the RN bridge. */
+        var onConnectionStatusChanged: ((String) -> Unit)? = null
     }
 
     // -------------------------------------------------------------------------
@@ -164,16 +198,44 @@ class GeoDataForegroundService : Service() {
         startWatchdog()
     }
 
+    private fun startForegroundCompat(text: String) {
+        val notification = buildNotification(text)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Bluetooth-connected-device is the closest fit for an ELD/OBD dongle.
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             crashlytics.log("GeoDataForegroundService stop requested")
             FileLogger.append(this, "onStartCommand() — ACTION_STOP received")
+            sessionActive = false
+            isShuttingDown = true
+            cancelReconnect()
+            stopWatchdog()
+            notifyConnectionStatus(ELDConnectionStatus.DISCONNECTED)
             clearSavedPrefs()
             stopSelf()
             return START_NOT_STICKY
         }
         crashlytics.log("GeoDataForegroundService onStartCommand()")
         FileLogger.append(this, "GeoDataForegroundService onStartCommand()")
+        
+        val freshDevice = intent?.getStringExtra(EXTRA_DEVICE_ADDRESS)
+        if (sessionActive && !isShuttingDown && savedDeviceAddress.isNotBlank() &&
+            freshDevice.isNullOrEmpty()) {
+            startForegroundCompat("ELD data collection active")
+            return START_STICKY
+        }
+
+
         val prefs = getSharedPreferences(GeoDataPrefs.PREFS_NAME, Context.MODE_PRIVATE)
 
         val deviceAddress: String
@@ -205,27 +267,29 @@ class GeoDataForegroundService : Service() {
 
         if (apiUrl.isBlank()) {
             Log.e(TAG, "Cannot start – apiUrl is empty")
+            notifyConnectionStatus(ELDConnectionStatus.DISCONNECTED)
             stopSelf()
             return START_NOT_STICKY
         }
 
-        startForeground(NOTIFICATION_ID, buildNotification("ELD data collection active"))
+        startForegroundCompat("ELD data collection active")
 
-        // Guard: if Bluetooth is off entirely, stop immediately (nothing to connect to)
+        // Keep the foreground service/session configuration alive while Bluetooth is
+        // temporarily disabled. The adapter receiver schedules reconnection when it returns.
+        sessionActive = deviceAddress.isNotBlank()
+        isShuttingDown = false
+        savedDeviceAddress = deviceAddress
+
         val btAdapter = BluetoothAdapter.getDefaultAdapter()
         if (btAdapter == null || !btAdapter.isEnabled) {
-            Log.w(TAG, "Bluetooth unavailable – stopping service")
-            crashlytics.log("onSxtartCommand -> stopping: Bluetooth unavailable")
-            FileLogger.append(this, "onStartCommand() — stopping: Bluetooth unavailable")
-            clearSavedPrefs()
-            stopSelf()
-            return START_NOT_STICKY
-        }
-
-        // Start Geometris OBD session on background thread
-        if (deviceAddress.isNotEmpty()) {
-            savedDeviceAddress = deviceAddress
+            Log.w(TAG, "Bluetooth unavailable – waiting for Bluetooth to turn on")
+            notifyConnectionStatus(ELDConnectionStatus.DISCONNECTED)
+            updateNotification("Bluetooth off – waiting")
+        } else if (deviceAddress.isNotEmpty()) {
             reconnectAttempts = 0
+            isDataStale = false
+            lastDataReceivedAt = System.currentTimeMillis()
+            notifyConnectionStatus(ELDConnectionStatus.CONNECTING)
             executor.execute { startOBDSession(deviceAddress) }
         }
 
@@ -258,7 +322,7 @@ class GeoDataForegroundService : Service() {
             applicationContext,
             RESTART_REQUEST_CODE,
             restartIntent,
-            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -274,18 +338,22 @@ class GeoDataForegroundService : Service() {
         super.onDestroy()
         crashlytics.log("GeoDataForegroundService onDestroy()")
         FileLogger.append(this, "GeoDataForegroundService onDestroy()")
+        isShuttingDown = true
+        sessionActive = false
         stopWatchdog()
-        notifyConnectionState(false)
+        notifyConnectionStatus(ELDConnectionStatus.DISCONNECTED)
         cancelReconnect()
         try { unregisterReceiver(bluetoothReceiver) } catch (_: Exception) {}
-        try { WherequbeService.getInstance().disconnect() } catch (e: Exception) {
+        /*try { WherequbeService.getInstance().disconnect() } catch (e: Exception) {
             crashlytics.log("disconnect() - Exception : "+e)
             FileLogger.append(this, "disconnect() - Exception : "+e)
-        }
+        }*/
         try {
             val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             cm.unregisterNetworkCallback(networkCallback)
         } catch (_: Exception) {}
+        // Serialize the SDK teardown so it can't race an in-flight executor task.
+        try { executor.execute { try { WherequbeService.getInstance().disconnect() } catch (_: Exception) {} } } catch (_: Exception) {}
         executor.shutdown()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -303,6 +371,13 @@ class GeoDataForegroundService : Service() {
 
     @SuppressLint("MissingPermission")
     private fun startOBDSession(deviceAddress: String, reconnecting: Boolean = false) {
+        if (!sessionActive || isShuttingDown || isConnecting) return
+        isConnecting = true
+        lastDataReceivedAt = System.currentTimeMillis()
+        notifyConnectionStatus(
+            if (reconnecting || reconnectAttempts > 0) ELDConnectionStatus.RECONNECTING
+            else ELDConnectionStatus.CONNECTING
+        )
         try {
             WherequbeService.getInstance().initialize(applicationContext)
             if (!reconnecting) {
@@ -311,106 +386,131 @@ class GeoDataForegroundService : Service() {
                     crashlytics.log("connect() returned false for $deviceAddress")
                     FileLogger.append(this@GeoDataForegroundService, "connect() returned false for $deviceAddress")
                     Log.w(TAG, "connect() returned false for $deviceAddress")
-                    notifyConnectionState(false)
+                    notifyConnectionStatus(ELDConnectionStatus.DISCONNECTED)
                     scheduleReconnect()
                     return
                 }
             }
             sessionStartTime = isoFormat.format(Date())
-            lastDataReceivedAt = System.currentTimeMillis()
             WherequbeService.getInstance().setReqHandler(
                 BaseRequest.OBD_MEASUREMENT,
                 object : RequestHandler {
-                    override fun onRecv(ctx: android.content.Context, request: BaseRequest) {
-                        crashlytics.log("GeoDataForegroundService  onRecv()")
-                        lastDataReceivedAt = System.currentTimeMillis()
-                        notifyConnectionState(true)
-                        FileLogger.append(this@GeoDataForegroundService, "GeoDataForegroundService  onRecv()")
+                    override fun onRecv(ctx: Context, request: BaseRequest) {
                         val geoData = request.getObject() as? GeoData ?: return
+                        lastDataReceivedAt = System.currentTimeMillis()
+                        isDataStale = false
+                        reconnectAttempts = 0
+                        cancelReconnect()
+                        notifyConnectionStatus(ELDConnectionStatus.CONNECTED)
+                        // Avoid per-packet Crashlytics/file logging; data processing remains serialized.
                         executor.execute { handleGeoData(geoData) }
                     }
                 }
             )
-            Log.d(TAG, "OBD session started for $deviceAddress")
-            crashlytics.log("OBD session started for $deviceAddress")
-            FileLogger.append(this@GeoDataForegroundService, "OBD session started for $deviceAddress")
+            Log.d(TAG, "OBD session handler registered for $deviceAddress")
+            crashlytics.log("OBD session handler registered for $deviceAddress")
+            FileLogger.append(this@GeoDataForegroundService, "OBD session handler registered for $deviceAddress")
+            
         } catch (e: Exception) {
-            Log.e(TAG, "OBD session error: ${e.message}")
+            Log.e(TAG, "OBD session error: ${e.message}", e)
             crashlytics.log("OBD session error for $deviceAddress")
             crashlytics.recordException(e)
-            notifyConnectionState(false)
+            notifyConnectionStatus(ELDConnectionStatus.DISCONNECTED)
             FileLogger.append(this@GeoDataForegroundService, "OBD session error for $deviceAddress: ${e.message}")
             scheduleReconnect()
+        } finally {
+            isConnecting = false
         }
     }
 
     private fun scheduleReconnect() {
-        if (reconnectAttempts >= maxReconnectAttempts) {
-            Log.e(TAG, "Max reconnect attempts reached – stopping service")
-            crashlytics.recordException(
-            Exception("ELD max reconnect attempts reached for $savedDeviceAddress, stopping service")
-            )
-            FileLogger.append(
-                this@GeoDataForegroundService,
-                "Max reconnect attempts reached for $savedDeviceAddress — stopping service"
-            )
-            notifyConnectionState(false)
-            clearSavedPrefs()
-            mainHandler.post { stopSelf() }
-            return
-        }
-        cancelReconnect()
+        if (!sessionActive || isShuttingDown) return
+        if( reconnectScheduled) return
+        reconnectScheduled = true
+
+        val exponent = reconnectAttempts.coerceAtMost(4)
+        val delayMs = minOf(reconnectBaseDelayMs * (1L shl exponent), reconnectMaxDelayMs)
         reconnectAttempts++
-        Log.d(TAG, "Reconnect attempt $reconnectAttempts in ${reconnectDelayMs / 1000}s")
-        FileLogger.append(
-                this@GeoDataForegroundService,
-                "Reconnect attempt $reconnectAttempts in ${reconnectDelayMs / 1000}s"
-            )
-        updateNotification("ELD disconnected – reconnecting ($reconnectAttempts/$maxReconnectAttempts)")
+
+        // Preserve STALE or DISCONNECTED while waiting; switch to RECONNECTING
+        // only when an actual retry begins.
+        updateNotification("ELD reconnecting – attempt $reconnectAttempts")
+        FileLogger.append(this, "Reconnect scheduled in ${delayMs}ms; attempt=$reconnectAttempts")
+
         reconnectRunnable = Runnable {
-            val btAdapter = BluetoothAdapter.getDefaultAdapter()
-            if (btAdapter == null || !btAdapter.isEnabled) {
-                Log.w(TAG, "Bluetooth off during reconnect – stopping")
-                clearSavedPrefs()
-                stopSelf()
+            reconnectScheduled = false
+            reconnectRunnable = null
+            if (!sessionActive || isShuttingDown) return@Runnable
+
+            val adapter = BluetoothAdapter.getDefaultAdapter()
+            if (adapter == null || !adapter.isEnabled) {
+                notifyConnectionStatus(ELDConnectionStatus.DISCONNECTED)
+                updateNotification("Bluetooth off – waiting")
+                // Do not erase saved session settings. Adapter STATE_ON will retry.
                 return@Runnable
             }
-            executor.execute { startOBDSession(savedDeviceAddress) }
-        }.also { mainHandler.postDelayed(it, reconnectDelayMs) }
+
+            executor.execute {
+                if (!sessionActive || isShuttingDown || isConnecting) {
+                    if (sessionActive && !isShuttingDown) scheduleReconnect()
+                    return@execute
+                }
+                try {
+                    notifyConnectionStatus(ELDConnectionStatus.RECONNECTING)
+                    // Serialize disconnect/reconnect operations on this executor.
+                    try {
+                        WherequbeService.getInstance().disconnect()
+                    } catch (disconnectError: Exception) {
+                        Log.w(TAG, "Disconnect before retry failed: ${disconnectError.message}")
+                    }
+                    startOBDSession(savedDeviceAddress, reconnecting = false)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Reconnect attempt failed", e)
+                    crashlytics.recordException(e)
+                    reconnectScheduled = false 
+                    scheduleReconnect()
+                }
+            }
+        }.also { mainHandler.postDelayed(it, delayMs) }
     }
 
     private fun cancelReconnect() {
-        FileLogger.append(
-                this@GeoDataForegroundService,
-                "cancelReconnect()"
-            )
         reconnectRunnable?.let { mainHandler.removeCallbacks(it) }
         reconnectRunnable = null
+        reconnectScheduled = false
     }
 
-    /** Only invokes the callback on an actual state transition — never spams JS. */
-    private fun notifyConnectionState(connected: Boolean) {
-        if (lastKnownConnected == connected) return
-        lastKnownConnected = connected
-        mainHandler.post { onConnectionStateChanged?.invoke(connected) }
+    /** Rich state callback for the UI signal: connected/connecting/reconnecting/disconnected/stale. */
+    private fun notifyConnectionStatus(status: ELDConnectionStatus) {
+        if (lastKnownStatus == status) return
+        lastKnownStatus = status
+        mainHandler.post {
+            onConnectionStatusChanged?.invoke(status.name.lowercase(Locale.US))
+        }
     }
 
     private fun startWatchdog() {
         stopWatchdog()
-        lastDataReceivedAt = System.currentTimeMillis()
         watchdogRunnable = object : Runnable {
             override fun run() {
-                val connected = lastKnownConnected == true
-                val silentFor = System.currentTimeMillis() - lastDataReceivedAt
-                if (connected && silentFor > dataStallThresholdMs) {
-                    Log.w(TAG, "No OBD data for ${silentFor / 1000}s while connected – forcing reconnect")
-                    crashlytics.log("GeoData stall detected (${silentFor / 1000}s silent) – forcing reconnect")
-                    FileLogger.append(
-                        this@GeoDataForegroundService,
-                        "GeoData stall detected (${silentFor / 1000}s silent) – forcing reconnect"
-                    )
-                    notifyConnectionState(false)
-                    scheduleReconnect()
+                if (sessionActive && !isShuttingDown) {
+                    val lastDataAt = lastDataReceivedAt
+                    val silentFor = if (lastDataAt > 0L) {
+                        System.currentTimeMillis() - lastDataAt
+                    } else {
+                        Long.MAX_VALUE
+                    }
+
+                    if (!isDataStale && silentFor > dataStallThresholdMs) {
+                        isDataStale = true
+                        Log.w(TAG, "No valid OBD data for ${silentFor / 1000}s")
+                        crashlytics.log("ELD data stale (${silentFor / 1000}s without valid GeoData)")
+                        FileLogger.append(this@GeoDataForegroundService,
+                            "ELD data stale (${silentFor / 1000}s without valid GeoData)")
+                        notifyConnectionStatus(ELDConnectionStatus.STALE)
+                        updateNotification("ELD data stale – checking connection")
+                        scheduleReconnect()
+                    }
                 }
                 mainHandler.postDelayed(this, watchdogIntervalMs)
             }
@@ -438,33 +538,22 @@ class GeoDataForegroundService : Service() {
 
     private fun handlePayload(json: String) {
         onGeoData?.invoke(json)
-        if (isNetworkAvailable()) {
-            if (!uploadPayload(json)) {
-                db.insert(json)
-                Log.w(TAG, "Upload failed – queued (pending: ${db.count()})")
-                crashlytics.log("GeoData upload failed, queued (pending=${db.count()})")
-                FileLogger.append(
-                        this@GeoDataForegroundService,
-                        "GeoData upload failed, queued (pending=${db.count()})"
-                    )
-                updateNotification("Upload failed – ${db.count()} queued")
-            } else {
-                FileLogger.append(
-                        this@GeoDataForegroundService,
-                        "Last upload: ${timeFormat.format(Date())}"
-                    )
-                updateNotification("Last upload: ${timeFormat.format(Date())}")
-            }
-        } else {
-            db.insert(json)
-            Log.d(TAG, "Offline – queued (pending: ${db.count()})")
-            crashlytics.log("GeoData queued offline (pending=${db.count()})")
-            FileLogger.append(
-                        this@GeoDataForegroundService,
-                        "GeoData queued offline (pending=${db.count()})"
-                    )
-            updateNotification("Offline – ${db.count()} record(s) queued")
+        FileLogger.append(this, "Last upload: ${timeFormat.format(Date())} - ${lastDataReceivedAt}")
+        /* val online = isNetworkAvailable()
+        if (online && uploadPayload(json)) {
+            FileLogger.append(this, "Last upload: ${timeFormat.format(Date())}")
+            updateNotification("Last upload: ${timeFormat.format(Date())}")
+            return
         }
+
+        db.insert(json)
+        val pending = db.count()
+        val reason = if (online) "Upload failed" else "Offline"
+        Log.w(TAG, "$reason – queued (pending: $pending)")
+        crashlytics.log("GeoData queued ($reason, pending=$pending)")
+        FileLogger.append(this, "GeoData queued ($reason, pending=$pending)")
+        updateNotification("$reason – $pending record(s) queued") */
+        
     }
 
     /** Flush all queued records, oldest first. Stops on first failure to preserve order. */
@@ -506,7 +595,11 @@ class GeoDataForegroundService : Service() {
     /** POST GeoData as multipart form-data to the ELD endpoint. Returns true on HTTP 2xx. */
     private fun uploadPayload(json: String): Boolean {
         val result = GeoDataUploader.upload(apiUrl, token, json, sessionStartTime)
-        sessionStartTime = result.endLogTime
+        if(result.success)
+        {
+            // advance session window only on success; keep prior value on failure
+            sessionStartTime = result.endLogTime.ifBlank { sessionStartTime }
+        }
         return result.success
     }
 
@@ -538,8 +631,14 @@ class GeoDataForegroundService : Service() {
         val filter = IntentFilter().apply {
             addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+            addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
         }
-        registerReceiver(bluetoothReceiver, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(bluetoothReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(bluetoothReceiver, filter)
+        }
     }
 
     /** Erase persisted credentials – called only when JS explicitly stops the service. */
@@ -553,8 +652,9 @@ class GeoDataForegroundService : Service() {
     }
 
     private fun kmhToMph(speedKmh: Double): Int {
-        val kmToMph = 0.621371
-        return round(speedKmh * kmToMph).toInt()
+        /*val kmToMph = 0.621371
+        return round(speedKmh * kmToMph).toInt() */
+        return speedKmh.toInt()
     }
 
     private fun geoDataToJson(data: GeoData): String {
@@ -582,18 +682,7 @@ class GeoDataForegroundService : Service() {
                 // Speed - merge with unidentified events speed if normal speed is 0.0
                 var finalSpeed = data.vehicleSpeed
                 if (finalSpeed == null) issues.nullFields.add("speed")
-                //if ((finalSpeed ?: 0.0) == 0.0) {
-                //    try {
-                //        data.unidentifiedEventArrayList?.lastOrNull()?.vehicleSpeed?.let { eventSpeed ->
-                //            if (eventSpeed > 0.0) {
-                //                finalSpeed = eventSpeed
-                //            }
-                //        }
-                //    } catch (e: Exception) {
-                //        issues.exceptions.add("speed_fallback" to e)
-                //    }
-                //    if ((finalSpeed ?: 0.0) == 0.0) issues.nullFields.add("speed_fallback_exhausted")
-                //}
+                
                 put("speed", kmhToMph(finalSpeed ?: 0.0))
                 put("speedTimestamp", data.vehicleSpeedTimestamp?.toString() ?: "")
 
