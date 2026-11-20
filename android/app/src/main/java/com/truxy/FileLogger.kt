@@ -44,7 +44,7 @@ object FileLogger {
     }
 
     fun append(context: Context, message: String) {
-        executor.execute {
+        /* executor.execute {
             try {
                 val file = getLogFile(context)
                 val timestamp = dateFormat.format(Date())
@@ -56,7 +56,8 @@ object FileLogger {
                 // failure writing the diagnostic log shouldn't itself
                 // become a source of crash-report noise.
             }
-        }
+        } */
+        return
     }
 
     private fun trimIfNeeded(file: File) {

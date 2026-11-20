@@ -67,7 +67,7 @@ object GeoDataUploader {
             conn.disconnect()
 
             if (code in 200..299) {
-                Log.d(TAG, "API Response [$code]: $responseBody")
+                Log.d(TAG, "API Response [$code]") //: $responseBody
             } else {
                 Log.w(TAG, "API Error [$code]: $responseBody | url=$apiUrl")
             }

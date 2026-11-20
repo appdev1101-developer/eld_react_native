@@ -42,6 +42,7 @@ import android.content.pm.ServiceInfo
  * are retried automatically when connectivity is restored.
  */
 /** State exposed to React Native for the ELD connection indicator. */
+
 enum class ELDConnectionStatus {
     CONNECTED,
     CONNECTING,
@@ -85,7 +86,7 @@ class GeoDataForegroundService : Service() {
 
     // If no valid OBD measurement arrives within this window, show STALE.
     // Tune this to the expected cadence of your Geometris ELD device.
-    private val dataStallThresholdMs = 45_000L
+    private val dataStallThresholdMs = 60_000L //45_000L
     private val watchdogIntervalMs = 10_000L
     private var watchdogRunnable: Runnable? = null
 
@@ -189,6 +190,7 @@ class GeoDataForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.d(TAG, "#### GeoDataForegroundService created()")
         crashlytics.log("GeoDataForegroundService created")
         FileLogger.append(this, "onCreate() — service instance created")
         db = GeoDataDatabase(this)
@@ -216,6 +218,7 @@ class GeoDataForegroundService : Service() {
         if (intent?.action == ACTION_STOP) {
             crashlytics.log("GeoDataForegroundService stop requested")
             FileLogger.append(this, "onStartCommand() — ACTION_STOP received")
+            Log.d(TAG, "#### onStartCommand() — ACTION_STOP")
             sessionActive = false
             isShuttingDown = true
             cancelReconnect()
@@ -227,8 +230,8 @@ class GeoDataForegroundService : Service() {
         }
         crashlytics.log("GeoDataForegroundService onStartCommand()")
         FileLogger.append(this, "GeoDataForegroundService onStartCommand()")
-        
         val freshDevice = intent?.getStringExtra(EXTRA_DEVICE_ADDRESS)
+        Log.d(TAG, "#### onStartCommand() — ACTION_START ${sessionActive} ${isShuttingDown} ${savedDeviceAddress.isNotBlank()} ${freshDevice.isNullOrEmpty()}")
         if (sessionActive && !isShuttingDown && savedDeviceAddress.isNotBlank() &&
             freshDevice.isNullOrEmpty()) {
             startForegroundCompat("ELD data collection active")
@@ -284,15 +287,18 @@ class GeoDataForegroundService : Service() {
         if (btAdapter == null || !btAdapter.isEnabled) {
             Log.w(TAG, "Bluetooth unavailable – waiting for Bluetooth to turn on")
             notifyConnectionStatus(ELDConnectionStatus.DISCONNECTED)
+            crashlytics.log("GeoDataForegroundService - ELDConnection disconnect")
+            FileLogger.append(this, "GeoDataForegroundService - ELDConnection disconnect")
             updateNotification("Bluetooth off – waiting")
         } else if (deviceAddress.isNotEmpty()) {
             reconnectAttempts = 0
             isDataStale = false
             lastDataReceivedAt = System.currentTimeMillis()
+            Log.d(TAG, "#### onStartCommand() — Device is not empty ${sessionActive} ${savedDeviceAddress.isNotBlank()}")
             notifyConnectionStatus(ELDConnectionStatus.CONNECTING)
             executor.execute { startOBDSession(deviceAddress) }
         }
-
+        Log.d(TAG, "#### onStartCommand() — Execute flush dB")
         // Retry any records left over from a previous session
         executor.execute { flushQueue() }
 
@@ -371,6 +377,7 @@ class GeoDataForegroundService : Service() {
 
     @SuppressLint("MissingPermission")
     private fun startOBDSession(deviceAddress: String, reconnecting: Boolean = false) {
+        Log.d(TAG, "#### startOBDSession() — ${sessionActive} ${isConnecting} ${isShuttingDown} ${reconnecting}")
         if (!sessionActive || isShuttingDown || isConnecting) return
         isConnecting = true
         lastDataReceivedAt = System.currentTimeMillis()
@@ -380,12 +387,15 @@ class GeoDataForegroundService : Service() {
         )
         try {
             WherequbeService.getInstance().initialize(applicationContext)
+            val connected = WherequbeService.getInstance().connect(deviceAddress)
+            Log.d(TAG, "#### startOBDSession() — WhereQube library connected ${connected}")
             if (!reconnecting) {
                 val connected = WherequbeService.getInstance().connect(deviceAddress)
+                Log.d(TAG, "#### startOBDSession() — WhereQube library connected ${connected}")
                 if (!connected) {
                     crashlytics.log("connect() returned false for $deviceAddress")
                     FileLogger.append(this@GeoDataForegroundService, "connect() returned false for $deviceAddress")
-                    Log.w(TAG, "connect() returned false for $deviceAddress")
+                    // Log.w(TAG, "connect() returned false for $deviceAddress")
                     notifyConnectionStatus(ELDConnectionStatus.DISCONNECTED)
                     scheduleReconnect()
                     return
@@ -397,6 +407,8 @@ class GeoDataForegroundService : Service() {
                 object : RequestHandler {
                     override fun onRecv(ctx: Context, request: BaseRequest) {
                         val geoData = request.getObject() as? GeoData ?: return
+                        FileLogger.append(this@GeoDataForegroundService, "##### onRecv()")
+                        Log.d(TAG, "#### onRecv() ${geoData.toString()}")
                         lastDataReceivedAt = System.currentTimeMillis()
                         isDataStale = false
                         reconnectAttempts = 0
@@ -407,7 +419,7 @@ class GeoDataForegroundService : Service() {
                     }
                 }
             )
-            Log.d(TAG, "OBD session handler registered for $deviceAddress")
+            Log.d(TAG, "#### OBD session handler registered for $deviceAddress")
             crashlytics.log("OBD session handler registered for $deviceAddress")
             FileLogger.append(this@GeoDataForegroundService, "OBD session handler registered for $deviceAddress")
             
@@ -533,12 +545,18 @@ class GeoDataForegroundService : Service() {
     // -------------------------------------------------------------------------
 
     private fun handleGeoData(data: GeoData) {
+        Log.d(TAG, "#### handleGeoData()")
         handlePayload(geoDataToJson(data))
     }
 
     private fun handlePayload(json: String) {
+        Log.d(TAG, "#### handlePayload() ${json}")
         onGeoData?.invoke(json)
-        FileLogger.append(this, "Last upload: ${timeFormat.format(Date())} - ${lastDataReceivedAt}")
+        Log.d(TAG, "#### handlePayload() end")
+        updateNotification("Last upload: ${timeFormat.format(Date())}")
+        
+
+        //FileLogger.append(this, "Last upload: ${timeFormat.format(Date())} - ${lastDataReceivedAt}")
         /* val online = isNetworkAvailable()
         if (online && uploadPayload(json)) {
             FileLogger.append(this, "Last upload: ${timeFormat.format(Date())}")
@@ -666,7 +684,7 @@ class GeoDataForegroundService : Service() {
                 data.protocol?.let { put("protocolId", it) } ?: issues.nullFields.add("protocolId")
 
                 // Vehicle identification
-                put("vin", data.vin ?: "")
+                put("vin", data.vin ?: "MALB351CLLM052411")
                 if (data.vin.isNullOrBlank()) issues.nullFields.add("vin")
 
                 // Odometer

@@ -17,6 +17,7 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import org.json.JSONObject
+import android.util.Log
 
 /**
  * React Native bridge that starts/stops the GeoData foreground service,
@@ -24,6 +25,10 @@ import org.json.JSONObject
  */
 class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
+    
+    companion object {
+        private const val TAG = "GeoDataServiceModule"
+    }
 
     init {
         // Event names must match the constants used by the React Native app.
@@ -32,12 +37,14 @@ class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
             FileLogger.append(reactContext, "GeoDataForegroundService onGeoData() ")
             if (reactContext.hasActiveReactInstance()) {
                 try {
+                    Log.d(TAG, " #### onGeoData()")
                     reactContext
                         .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                         .emit("GeometrisData", jsonToWritableMap(JSONObject(jsonString)))
                     FileLogger.append(reactContext, "GeoDataForegroundService onGeoData() emitted")
-                } catch (_: Exception) {
+                } catch (e: Exception) {
                     // Do not allow a JS bridge error to interrupt the native service.
+                    Log.e(TAG, "onGeoData error: ${e.message}", e)
                 }
             }
         }
@@ -47,14 +54,16 @@ class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
         GeoDataForegroundService.onConnectionStatusChanged = { status ->
             if (reactContext.hasActiveReactInstance()) {
                 try {
+                    Log.d(TAG, "####  onConnectionStatusChanged() Status: ${status}")
                     val map = Arguments.createMap()
                     map.putString("status", status)
-                    map.putBoolean("connected", status == "connected")
+                    //map.putBoolean("connected", status == "connected")
                     reactContext
                         .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                         .emit("ELD_CONNECTION_STATE_CHANGED", map)
-                } catch (_: Exception) {
+                } catch (e: Exception) {
                     // Keep native connection handling independent of JS listener errors.
+                    Log.e(TAG, "onConnectionStatusChanged error: ${e.message}", e)
                 }
             }
         }
@@ -98,7 +107,7 @@ class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
                 .putString(GeoDataPrefs.KEY_API_URL, apiUrl)
                 .putString(GeoDataPrefs.KEY_TOKEN, token)
                 .apply()
-
+            Log.d(TAG, "#### startService()")
             val intent = Intent(reactContext, GeoDataForegroundService::class.java).apply {
                 action = GeoDataForegroundService.ACTION_START
                 putExtra(GeoDataForegroundService.EXTRA_API_URL, apiUrl)
@@ -120,6 +129,7 @@ class GeoDataServiceModule(private val reactContext: ReactApplicationContext) :
     @ReactMethod
     fun stopService(promise: Promise) {
         try {
+            Log.d(TAG, "#### stopService()")
             val intent = Intent(reactContext, GeoDataForegroundService::class.java).apply {
                 action = GeoDataForegroundService.ACTION_STOP
             }

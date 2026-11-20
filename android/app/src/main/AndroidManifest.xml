@@ -60,7 +60,6 @@
 
         <service
             android:name=".GeoDataForegroundService"
-            android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
